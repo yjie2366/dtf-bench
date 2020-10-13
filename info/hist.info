@@ -1,0 +1,253 @@
+z 5 1
+z
+zh 5 1
+zh
+oz 5 1
+oz
+ozh 5 1
+ozh
+lz 5 1
+lz
+lzh 5 1
+lzh
+uz 5 1
+uz
+uzh 5 1
+uzh
+x 5 1
+x
+xh 5 1
+xh
+y 5 1
+y
+yh 5 1
+yh
+CZ 5 1
+CZ
+FZ 5 1
+FZ
+CDZ 5 1
+CZ
+FDZ 5 1
+FDZ
+CBFZ 5 1
+CZ
+FBFZ 5 1
+FZ
+OCZ 5 1
+OCZ
+OFZ 5 1
+OFZ
+OCDZ 5 1
+OCZ
+LCZ 5 1
+LCZ
+LFZ 5 1
+LFZ
+LCDZ 5 1
+LCZ
+UCZ 5 1
+UCZ
+UFZ 5 1
+UFZ
+UCDZ 5 1
+UCZ
+CX 5 1
+CX
+CY 5 1
+CY
+FX 5 1
+FX
+FY 5 1
+FY
+CDX 5 1
+CX
+CDY 5 1
+CY
+FDX 5 1
+FDX
+FDY 5 1
+FDY
+CBFX 5 1
+CX
+CBFY 5 1
+CY
+FBFX 5 1
+FX
+FBFY 5 1
+FY
+CXG 5 1
+CXG
+CYG 5 1
+CYG
+FXG 5 1
+FXG
+FYG 5 1
+FYG
+CDXG 5 1
+CXG
+CDYG 5 1
+CYG
+FDXG 5 1
+FDXG
+FDYG 5 1
+FDYG
+CBFXG 5 1
+CXG
+CBFYG 5 1
+CYG
+FBFXG 5 1
+FXG
+FBFYG 5 1
+FYG
+height 5 3
+z
+y
+x
+height_xyw 5 3
+zh
+y
+x
+height_uyz 5 3
+z
+y
+xh
+height_xvz 5 3
+z
+yh
+x
+height_uvz 5 3
+z
+yh
+xh
+height_uyw 5 3
+zh
+y
+xh
+height_xvw 5 3
+zh
+yh
+x
+height_uvw 5 3
+zh
+yh
+xh
+lon 5 2
+y
+x
+lon_uy 5 2
+y
+xh
+lon_xv 5 2
+yh
+x
+lon_uv 5 2
+yh
+xh
+lat 5 2
+y
+x
+lat_uy 5 2
+y
+xh
+lat_xv 5 2
+yh
+x
+lat_uv 5 2
+yh
+xh
+topo 5 2
+y
+x
+lsmask 5 2
+y
+x
+time 6 1
+time
+time_bnds 6 2
+time
+nv
+QV 5 4
+time
+z
+y
+x
+QC 5 4
+time
+z
+y
+x
+QR 5 4
+time
+z
+y
+x
+QI 5 4
+time
+z
+y
+x
+QS 5 4
+time
+z
+y
+x
+QG 5 4
+time
+z
+y
+x
+W 5 4
+time
+z
+y
+x
+U 5 4
+time
+z
+y
+x
+V 5 4
+time
+z
+y
+x
+T 5 4
+time
+z
+y
+x
+PRES 5 4
+time
+z
+y
+x
+PREC 5 3
+time
+y
+x
+RH 5 4
+time
+z
+y
+x
+SFC_PRES 5 3
+time
+y
+x
+U10 5 3
+time
+y
+x
+V10 5 3
+time
+y
+x
+T2 5 3
+time
+y
+x
+Q2 5 3
+time
+y
+x

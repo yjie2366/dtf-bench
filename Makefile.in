@@ -1,0 +1,18 @@
+.PHONY: all clean distclean allclean
+
+all: 
+	@$(MAKE) -C src/ $@
+
+clean: 
+	-@$(MAKE) -C src/ $@
+
+allclean: distclean clean
+	rm -rf configure aclocal.m4 autom4*
+	rm -f  script/exec.sh include/bpconf.h
+	rm -f  Makefile
+
+distclean: clean
+	rm -f config.*
+	rm -f port_*
+
+

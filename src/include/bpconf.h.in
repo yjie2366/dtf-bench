@@ -1,0 +1,9 @@
+#ifndef _BPCONF_H_
+#define _BPCONF_H_
+
+/* Path */
+#define DATA_PATH 	"@abs_top_builddir@/data"
+#define INFO_PATH(file) "@abs_top_builddir@/info/"#file".info"
+#define DTF_INIT_FILE 	"@abs_top_builddir@/dtf.ini"
+
+#endif

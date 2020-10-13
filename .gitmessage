@@ -1,0 +1,11 @@
+
+# Write commit message above this line
+
+ To-do List:
+
+    >> Modify data buffers in struct file_info. Replace them with a newly
+    defined buffer structure.
+
+    >> Add batch script.
+
+    > Put struct dim_pairs object into struct var (?)

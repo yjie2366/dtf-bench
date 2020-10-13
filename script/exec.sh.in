@@ -1,0 +1,87 @@
+#!/bin/sh
+
+export DTF_VERBOSE_LEVEL=2
+export DTF_GLOBAL_PATH=`pwd`
+export MAX_WORKGROUP_SIZE=2
+
+SPLIT_WRAPPER=@split_wrapper@
+top_dir=@abs_top_builddir@
+
+log_dir="${top_dir}/log"
+output_log="${log_dir}/output.log"
+error_log="${log_dir}/error.log"
+
+trap_int()
+{
+	trap - SIGINT
+	echo "Execution of the benchmark is interrupted!"
+	exit
+}
+
+trap trap_int SIGINT
+
+if [ ! -e "${log_dir}" ]; then
+	mkdir -p ${log_dir}
+fi
+
+for opts; do
+	if [ "${opts:0:1}" != "-" ]; then
+		shift; continue
+	else
+		opts=`echo ${opts} | tr -d -`
+	fi
+	case $opts in
+		np)
+			shift
+			np=$1
+			;;
+		imax)
+			shift
+			imax=$1
+			;;
+		jmax)
+			shift
+			jmax=$1
+			;;
+		cycles)
+			shift
+			cycles=$1
+			;;
+		member)
+			shift
+			member=$1
+			;;
+	esac
+done
+
+if [ -z "$np" ]; then np=4; fi
+if [ -z "$imax" ]; then imax=32; fi
+if [ -z "$jmax" ]; then jmax=20; fi
+if [ -z "$cycles" ]; then cycles=4; fi
+if [ -z "$member" ]; then member=2; fi
+
+echo "Executing benchmark with options: "
+echo "Number of Processes: ${np}"
+echo "Grid Size (IMAX*JMAX): ${imax}*${jmax}"
+echo "Number of Ensembles: ${member}"
+echo "Number of Cycles: ${cycles}"
+
+bin_opts="-imax=${imax} -jmax=${jmax} -member=${member} -cycles=${cycles}"
+bin_scale="${top_dir}/bin/scale"
+bin_letkf="${top_dir}/bin/letkf"
+
+if [ -n "${SPLIT_WRAPPER}" ]; then
+	export LD_PRELOAD=${SPLIT_WRAPPER}
+	mpiexec -np ${np} ${bin_scale} ${bin_opts} : -np ${np} ${bin_letkf} ${bin_opts} \
+		> ${output_log} 2> ${error_log}
+else
+	mpiexec -np ${np} ${bin_scale} ${bin_opts} > ${output_log} 2> ${error_log} &
+	mpiexec	-np ${np} ${bin_letkf} ${bin_opts} > ${output_log} 2> ${error_log}
+fi
+
+if [ "$?" -ne 0 ]; then
+	echo "Error occurred. Please check ${error_log}!"
+else
+	echo "Execution succeeded!"
+fi
+trap - SIGINT

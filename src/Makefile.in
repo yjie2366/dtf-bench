@@ -1,0 +1,52 @@
+MPICC := @MPICC@
+PNETCDF := @pnetcdf_ins@
+DTF := @dtf_ins@
+TOP_DIR := @abs_top_builddir@
+BIN_DIR := $(TOP_DIR)/bin
+
+S_DIR := v_scale
+L_DIR := v_letkf
+U_DIR := util
+
+S_SRC := $(wildcard $(S_DIR)/*.c)
+L_SRC := $(wildcard $(L_DIR)/*.c)
+U_SRC := $(wildcard $(U_DIR)/*.c)
+
+S_OBJ := $(S_SRC:.c=.o)
+L_OBJ := $(L_SRC:.c=.o)
+U_OBJ := $(U_SRC:.c=.o)
+
+CFLAGS := -Wall -g -I$(TOP_DIR)/src/include -I$(PNETCDF)/include -I$(DTF)
+LIBS := -L$(PNETCDF)/lib -L$(DTF)
+LDFLAGS := -lpnetcdf -l:libdtf.a
+
+ifneq ($(MPICC), mpiicc)
+LDFLAGS += -lm
+endif
+
+.PHONY: all allclean distclean clean
+all: scale letkf
+	mkdir -p $(BIN_DIR)
+	mv $^ $(BIN_DIR)
+
+scale: $(S_OBJ) $(U_OBJ)
+	$(MPICC) -o $@ $^ $(LIBS) $(LDFLAGS)
+
+letkf: $(L_OBJ) $(U_OBJ)
+	$(MPICC) -o $@ $^ $(LIBS) $(LDFLAGS)
+
+$(U_OBJ): $(U_DIR)/%.o : $(U_DIR)/%.c
+	$(MPICC) -c $< $(CFLAGS) -o $@
+
+$(S_OBJ): $(S_DIR)/%.o : $(S_DIR)/%.c
+	$(MPICC) -c $< $(CFLAGS) -o $@
+
+$(L_OBJ): $(L_DIR)/%.o : $(L_DIR)/%.c
+	$(MPICC) -c $< $(CFLAGS) -o $@
+
+clean:
+	rm $(S_DIR)/*.o $(L_DIR)/*.o $(U_DIR)/*.o
+	rm -rf $(BIN_DIR)
+
+
+

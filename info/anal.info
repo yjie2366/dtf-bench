@@ -1,0 +1,399 @@
+z 5 1
+z
+zh 5 1
+zh
+oz 5 1
+oz
+ozh 5 1
+ozh
+lz 5 1
+lz
+lzh 5 1
+lzh
+uz 5 1
+uz
+uzh 5 1
+uzh
+x 5 1
+x
+xh 5 1
+xh
+y 5 1
+y
+yh 5 1
+yh
+CZ 5 1
+CZ
+FZ 5 1
+FZ
+CDZ 5 1
+CZ
+FDZ 5 1
+FDZ
+CBFZ 5 1
+CZ
+FBFZ 5 1
+FZ
+OCZ 5 1
+OCZ
+OFZ 5 1
+OFZ
+OCDZ 5 1
+OCZ
+LCZ 5 1
+LCZ
+LFZ 5 1
+LFZ
+LCDZ 5 1
+LCZ
+UCZ 5 1
+UCZ
+UFZ 5 1
+UFZ
+UCDZ 5 1
+UCZ
+CX 5 1
+CX
+CY 5 1
+CY
+FX 5 1
+FX
+FY 5 1
+FY
+CDX 5 1
+CX
+CDY 5 1
+CY
+FDX 5 1
+FDX
+FDY 5 1
+FDY
+CBFX 5 1
+CX
+CBFY 5 1
+CY
+FBFX 5 1
+FX
+FBFY 5 1
+FY
+CXG 5 1
+CXG
+CYG 5 1
+CYG
+FXG 5 1
+FXG
+FYG 5 1
+FYG
+CDXG 5 1
+CXG
+CDYG 5 1
+CYG
+FDXG 5 1
+FDXG
+FDYG 5 1
+FDYG
+CBFXG 5 1
+CXG
+CBFYG 5 1
+CYG
+FBFXG 5 1
+FXG
+FBFYG 5 1
+FYG
+lon 5 2
+y
+x
+lon_uy 5 2
+y
+xh
+lon_xv 5 2
+yh
+x
+lon_uv 5 2
+yh
+xh
+lat 5 2
+y
+x
+lat_uy 5 2
+y
+xh
+lat_xv 5 2
+yh
+x
+lat_uv 5 2
+yh
+xh
+height 5 3
+y
+x
+z
+height_wxy 5 3
+y
+x
+zh
+OCEAN_TEMP 5 3
+y
+x
+oz
+OCEAN_SFC_TEMP 5 2
+y
+x
+OCEAN_ALB_LW 5 2
+y
+x
+OCEAN_ALB_SW 5 2
+y
+x
+OCEAN_SFC_Z0M 5 2
+y
+x
+OCEAN_SFC_Z0H 5 2
+y
+x
+OCEAN_SFC_Z0E 5 2
+y
+x
+OCEAN_SFLX_MW 5 2
+y
+x
+OCEAN_SFLX_MU 5 2
+y
+x
+OCEAN_SFLX_MV 5 2
+y
+x
+OCEAN_SFLX_SH 5 2
+y
+x
+OCEAN_SFLX_LH 5 2
+y
+x
+OCEAN_SFLX_WH 5 2
+y
+x
+OCEAN_SFLX_evap 5 2
+y
+x
+LAND_TEMP 5 3
+y
+x
+lz
+LAND_WATER 5 3
+y
+x
+lz
+LAND_SFC_TEMP 5 2
+y
+x
+LAND_ALB_LW 5 2
+y
+x
+LAND_ALB_SW 5 2
+y
+x
+LAND_SFLX_MW 5 2
+y
+x
+LAND_SFLX_MU 5 2
+y
+x
+LAND_SFLX_MV 5 2
+y
+x
+LAND_SFLX_SH 5 2
+y
+x
+LAND_SFLX_LH 5 2
+y
+x
+LAND_SFLX_GH 5 2
+y
+x
+LAND_SFLX_evap 5 2
+y
+x
+URBAN_TR 5 2
+y
+x
+URBAN_TB 5 2
+y
+x
+URBAN_TG 5 2
+y
+x
+URBAN_TC 5 2
+y
+x
+URBAN_QC 5 2
+y
+x
+URBAN_UC 5 2
+y
+x
+URBAN_TRL 5 3
+y
+x
+uz
+URBAN_TBL 5 3
+y
+x
+uz
+URBAN_TGL 5 3
+y
+x
+uz
+URBAN_RAINR 5 2
+y
+x
+URBAN_RAINB 5 2
+y
+x
+URBAN_RAING 5 2
+y
+x
+URBAN_ROFF 5 2
+y
+x
+URBAN_SFC_TEMP 5 2
+y
+x
+URBAN_ALB_LW 5 2
+y
+x
+URBAN_ALB_SW 5 2
+y
+x
+URBAN_SFLX_MW 5 2
+y
+x
+URBAN_SFLX_MU 5 2
+y
+x
+URBAN_SFLX_MV 5 2
+y
+x
+URBAN_SFLX_SH 5 2
+y
+x
+URBAN_SFLX_LH 5 2
+y
+x
+URBAN_SFLX_GH 5 2
+y
+x
+URBAN_SFLX_evap 5 2
+y
+x
+DENS 5 3
+y
+x
+z
+MOMZ 5 3
+y
+x
+zh
+MOMX 5 3
+y
+xh
+z
+MOMY 5 3
+yh
+x
+z
+RHOT 5 3
+y
+x
+z
+QV 5 3
+y
+x
+z
+QC 5 3
+y
+x
+z
+QR 5 3
+y
+x
+z
+QI 5 3
+y
+x
+z
+QS 5 3
+y
+x
+z
+QG 5 3
+y
+x
+z
+TKE_SMG 5 3
+y
+x
+z
+TKE_MYNN 5 3
+y
+x
+z
+SFLX_rain 5 2
+y
+x
+SFLX_snow 5 2
+y
+x
+SFLX_LW_up 5 2
+y
+x
+SFLX_LW_dn 5 2
+y
+x
+SFLX_SW_up 5 2
+y
+x
+SFLX_SW_dn 5 2
+y
+x
+TOAFLX_LW_up 5 2
+y
+x
+TOAFLX_LW_dn 5 2
+y
+x
+TOAFLX_SW_up 5 2
+y
+x
+TOAFLX_SW_dn 5 2
+y
+x
+SFLX_LW_dir 5 2
+y
+x
+SFLX_LW_dif 5 2
+y
+x
+SFLX_SW_dir 5 2
+y
+x
+SFLX_SW_dif 5 2
+y
+x
+SFC_TEMP 5 2
+y
+x
+SFC_ALB_LW 5 2
+y
+x
+SFC_ALB_SW 5 2
+y
+x
+SFC_Z0M 5 2
+y
+x
+SFC_Z0H 5 2
+y
+x
+SFC_Z0E 5 2
+y
+x
