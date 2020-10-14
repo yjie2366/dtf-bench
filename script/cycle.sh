@@ -56,6 +56,7 @@ cat <<- EOF > ${batch_script}
 #PJM -N "dtf-bench"
 #PJM -L "node=${nprocs}"
 #PJM -L "rscgrp=${rsc}"
+#PJM -g `id -nG | cut -d" " -f2`
 
 sh ${script_dir}/exec.sh ${args[@]}
 EOF
