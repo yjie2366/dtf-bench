@@ -11,8 +11,8 @@
 #define FILE_OPEN_W	0x08
 #define FILE_OPEN_R	0x10
 
+enum { XY = 0, ZXY2, ZHXY2, OCEAN, LAND, URBAN };
 enum file_type { ANAL = 0, HIST };
-enum subarray_type { XY = 0, ZXY2, ZHXY2, OCEAN, LAND, URBAN };
 
 struct dim_pair {
 	char name[64];
@@ -51,7 +51,6 @@ struct file_info {
 	float **var_write_buffers;
 	struct dim_pair *dims;
 	struct var_pair *vars;
-	MPI_Datatype subarray_type[NUM_DATATYPE];
 };
 
 typedef struct proc_data {

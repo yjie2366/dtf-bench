@@ -75,7 +75,11 @@ struct dim_pair hist_dims[NUM_HISTDIMS] = {
 	{ "nv"	, 2,		-1 }
 };
 
-static void init_subarray_types(PD *pd, int file_idx)
+MPI_Datatype subarray_type[NUM_DATATYPE] = {
+	[0 ... NUM_DATATYPE-1] = MPI_DATATYPE_NULL
+};
+
+static void init_subarray_types(PD *pd)
 {
 	int i;
 	int order = MPI_ORDER_C;
@@ -85,7 +89,7 @@ static void init_subarray_types(PD *pd, int file_idx)
 		int size[3] = { 0 };
 		int sub_size[3] = { 0 };
 		int sub_off[3] = { 0 };
-		MPI_Datatype *type = &pd->files[file_idx].subarray_type[i];
+		MPI_Datatype *type = &subarray_type[i];
 
 		switch (i) {
 		case XY:
@@ -187,9 +191,6 @@ static void init_fileinfo(PD *pd)
 		struct dim_pair *src_dim = NULL;
 
 		file->nvars = 0;
-		for (j = 0; j < NUM_DATATYPE; j++) {
-			file->subarray_type[j] = MPI_DATATYPE_NULL;
-		}
 
 		if (i == ANAL) {
 			strcpy(filename, INFO_PATH(anal));
@@ -278,8 +279,6 @@ static void init_fileinfo(PD *pd)
 
 		ret = fclose(fp);
 		check_error(ret != EOF, fclose);
-
-		init_subarray_types(pd, i);
 	}
 }
 
@@ -376,6 +375,7 @@ void init_pd(int argc, char **argv, PD *pd)
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
 	init_fileinfo(pd);
+	init_subarray_types(pd);
 }
 
 /* TODO: what about each cycle? */
@@ -421,13 +421,21 @@ int finalize_pd(PD *pd)
 			}
 			free(file->vars);
 		}
-
-		for (j = 0; j < NUM_DATATYPE; j++) {
-			if (file->subarray_type[j] != MPI_FLOAT)
-				MPI_Type_free(&file->subarray_type[j]);
-		}
 	}
 	free(pd->files);
+
+	for (i = 0; i < NUM_DATATYPE; i++) {
+		if (subarray_type[i] != MPI_DATATYPE_NULL) {
+			int ret, combiner, num_a, num_d, num_i;
+			ret = MPI_Type_get_envelope(subarray_type[i], &num_i,
+					&num_a, &num_d, &combiner);
+			check_mpi(ret, MPI_Type_get_envelope);
+
+			if (combiner != MPI_COMBINER_NAMED) {
+				MPI_Type_free(&subarray_type[i]);
+			}
+		}
+	}
 	MPI_Comm_free(&pd->ens_comm);
 
 	return 0;

@@ -6,6 +6,8 @@
 #include <time.h>
 #include <stdlib.h>
 
+extern MPI_Datatype subarray_type[];
+
 static int random_float_generator(float *array, MPI_Offset num)
 {
 	int i;
@@ -23,8 +25,7 @@ static int random_float_generator(float *array, MPI_Offset num)
 	return 0;
 }
 
-/* ANAL only */
-enum subarray_type get_subarray_type(struct var_pair *var)
+int get_subarray_type(struct var_pair *var)
 {
 	int i;
 
@@ -36,7 +37,6 @@ enum subarray_type get_subarray_type(struct var_pair *var)
 	if (strchr(var->dim_name[2], 'h')) return ZHXY2;
 	 
 	return ZXY2;
-
 }
 
 /* write axes and associated coord vars */
@@ -506,9 +506,9 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 			MPI_Offset *count = start + ndims;
 			MPI_Offset total_size = 0;
 
-			enum subarray_type type = get_subarray_type(var);
+			int type = get_subarray_type(var);
 	
-			dtype = file->subarray_type[type];
+			dtype = subarray_type[type];
 			ntypes = (type == XY)? IA(pd)*JA(pd) : 1;
 			
 			switch (type) {
