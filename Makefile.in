@@ -14,5 +14,6 @@ allclean: distclean clean
 distclean: clean
 	rm -f config.*
 	rm -f port_*
+	rm -f script/batch.*
 
 

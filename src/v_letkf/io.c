@@ -1,15 +1,15 @@
 #include "util.h"
 
-#define NUM_ANAL_VARS 	11
-#define NUM_HIST_VARS 	20
+#define LVARS_ANAL 	11
+#define LVARS_HIST 	20
 #define LETKF_WEIGHT 	10
 
-static char *anal_vars[NUM_ANAL_VARS] = {
+static char *anal_vars[LVARS_ANAL] = {
 	"DENS", "MOMX", "MOMY", "MOMZ", "RHOT", "QV",
 	"QC", "QR", "QI", "QS", "QG"
 };
 
-static char *hist_vars[NUM_HIST_VARS] = {
+static char *hist_vars[LVARS_HIST] = {
 	"U", "V", "W", "T", "PRES", "QV", "QC",
 	"QR", "QI", "QS", "QG", "RH", "height",
 	"topo", "SFC_PRES", "PREC", "U10", "V10", "T2", "Q2"
@@ -37,7 +37,7 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	char file_path[MAX_PATH_LEN] = { 0 };
 	struct file_info *file = &pd->files[HIST];
 	float **var_arrays = file->var_read_buffers;
-	int num_var = NUM_HIST_VARS;
+	int num_var = LVARS_HIST;
 	
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".hist.nc", file_path);
 
@@ -50,6 +50,8 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 		file->nvar_read_buf = num_var;
 	}
 
+	dtf_time_start();
+
 	for (i = 0; i < num_var; i++) {
 		int j;
 		int idx = -1;
@@ -59,9 +61,16 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 		MPI_Offset *count = NULL;
 		float *array = NULL;
 
-		idx = find_var(pd, HIST, hist_vars[i]);
-		check_error(idx >= 0, find_var);
+		ret = ncmpi_inq_varid(ncid, hist_vars[i], &idx);
+		check_io(ret, ncmpi_inq_varid);
 		var = &file->vars[idx];
+
+		if (strcmp(var->name, hist_vars[i])) {
+			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", hist_vars[i]);
+			idx = find_var(pd, HIST, hist_vars[i]);
+			check_error(idx >= 0, find_var);
+			var = &file->vars[idx];
+		}
 
 		start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * var->ndims * 2);
 		check_error(start, malloc);
@@ -114,6 +123,8 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
+	dtf_time_end();
+
 	return ret;
 }
 
@@ -130,13 +141,15 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
 	if (!var_arrays) {
-		var_arrays = (float **)malloc(sizeof(float *) * NUM_ANAL_VARS);
+		var_arrays = (float **)malloc(sizeof(float *) * LVARS_ANAL);
 		check_error(var_arrays, malloc);
-		memset(var_arrays, 0, sizeof(float *) * NUM_ANAL_VARS);
-		file->nvar_read_buf = NUM_ANAL_VARS;
+		memset(var_arrays, 0, sizeof(float *) * LVARS_ANAL);
+		file->nvar_read_buf = LVARS_ANAL;
 	}
 
-	for (i = 0; i < NUM_ANAL_VARS; i++) {
+	dtf_time_start();
+
+	for (i = 0; i < LVARS_ANAL; i++) {
 		int j;
 		int idx = -1;
 		MPI_Offset total_count = 1;
@@ -145,9 +158,16 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		MPI_Offset *count = NULL;
 		float *array = NULL;
 
-		idx = find_var(pd, ANAL, anal_vars[i]);
-		check_error(idx >= 0, find_var);
+		ret = ncmpi_inq_varid(ncid, anal_vars[i], &idx);
+		check_io(ret, ncmpi_inq_varid);
 		var = &file->vars[idx];
+
+		if (strcmp(var->name, anal_vars[i])) {
+			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
+			idx = find_var(pd, ANAL, anal_vars[i]);
+			check_error(idx >= 0, find_var);
+			var = &file->vars[idx];
+		}
 
 		start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * var->ndims * 2);
 		check_error(start, malloc);
@@ -193,6 +213,8 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
+	dtf_time_end();
+
 	return ret;
 }
 
@@ -209,13 +231,15 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_W, &ncid);
 
 	if (!var_arrays) {
-		var_arrays = (float **)malloc(sizeof(float *) * NUM_ANAL_VARS);
+		var_arrays = (float **)malloc(sizeof(float *) * LVARS_ANAL);
 		check_error(var_arrays, malloc);
-		memset(var_arrays, 0, sizeof(float *) * NUM_ANAL_VARS);
-		file->nvar_write_buf = NUM_ANAL_VARS;
+		memset(var_arrays, 0, sizeof(float *) * LVARS_ANAL);
+		file->nvar_write_buf = LVARS_ANAL;
 	}
 
-	for (i = 0; i < NUM_ANAL_VARS; i++) {
+	dtf_time_start();
+
+	for (i = 0; i < LVARS_ANAL; i++) {
 		int j;
 		int idx = -1;
 		MPI_Offset total_count = 1;
@@ -224,9 +248,16 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 		MPI_Offset *count = NULL;
 		float *array = NULL;
 
-		idx = find_var(pd, ANAL, anal_vars[i]);
-		check_error(idx >= 0, find_var);
+		ret = ncmpi_inq_varid(ncid, anal_vars[i], &idx);
+		check_io(ret, ncmpi_inq_varid);
 		var = &file->vars[idx];
+
+		if (strcmp(var->name, anal_vars[i])) {
+			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
+			idx = find_var(pd, ANAL, anal_vars[i]);
+			check_error(idx >= 0, find_var);
+			var = &file->vars[idx];
+		}
 
 		start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * var->ndims * 2);
 		check_error(start, malloc);
@@ -275,6 +306,8 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
+
+	dtf_time_end();
 
 	return ret;
 }

@@ -64,3 +64,4 @@ Makefile
 config.*
 port_*
 bpconf.h
+batch.*

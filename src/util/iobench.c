@@ -75,7 +75,6 @@ struct dim_pair hist_dims[NUM_HISTDIMS] = {
 	{ "nv"	, 2,		-1 }
 };
 
-/* TODO: what about history subarray? This is only for anal*/
 static void init_subarray_types(PD *pd, int file_idx)
 {
 	int i;
