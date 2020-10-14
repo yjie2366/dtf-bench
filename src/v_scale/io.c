@@ -1,10 +1,8 @@
-#include <pnetcdf.h>
 #include "util.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
-#include <stdlib.h>
 
 extern MPI_Datatype subarray_type[];
 
@@ -27,8 +25,6 @@ static int random_float_generator(float *array, MPI_Offset num)
 
 int get_subarray_type(struct var_pair *var)
 {
-	int i;
-
 	if (var->ndims == 2) return XY;
 
 	if (strchr(var->dim_name[2], 'o')) return OCEAN;
@@ -356,7 +352,7 @@ static int write_time_var(PD *pd, int ncid, int cycle)
 	check_io(ret, ncmpi_put_var1_double_all);
 
 	index[1] = 1;
-	ret = ncmpi_put_var1_double_all(ncid, varid_bnds, index, &time_s);
+	ret = ncmpi_put_var1_double_all(ncid, varid_bnds, index, &time_e);
 	check_io(ret, ncmpi_put_var1_double_all);
 
 	return ret;
@@ -364,7 +360,7 @@ static int write_time_var(PD *pd, int ncid, int cycle)
 
 int write_hist(PD *pd, char *dir_path, int cycle)
 {
-	int ret = 0, i;
+	int ret = 0;
 	int ncid = -1;
 	MPI_Offset buf_size = 0;
 	char file_path[MAX_PATH_LEN] = { 0 };
@@ -408,7 +404,7 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 
 int write_anal(PD *pd, char *dir_path, int cycle)
 {
-	int ret, i;
+	int ret;
 	int ncid = -1;
 	MPI_Offset buf_size = 0;
 	char file_path[MAX_PATH_LEN] = { 0 };
@@ -491,7 +487,6 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	dtf_time_start();
 
 	for (i = ANAL_DATA_VARS_OFFSET; i < file->nvars; i++) {
-		int j;
 		int arr_idx = i - ANAL_DATA_VARS_OFFSET;
 		struct var_pair *var = &file->vars[i];
 		int ndims = var->ndims;

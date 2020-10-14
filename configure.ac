@@ -23,7 +23,7 @@ else
 	AC_MSG_ERROR([DTF Library Missing])
 fi
 
-AC_ARG_WITH([split], AC_HELP_STRING([--with-split=<SPLITWRAPPER-PATH>], [To Specify SPLIT-WRAPPER Lib Path]),,)
+AC_ARG_WITH([split], AC_HELP_STRING([--with-split=<SPLITWRAPPER-PATH>], [To Specify SPLIT-WRAPPER Path]),,)
 if test "x${with_split}" != "x" && test -e ${with_split}; then
 	split_wrapper=${with_split}
 else

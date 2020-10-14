@@ -1261,7 +1261,7 @@ Optional Packages:
   --with-dtf=<DTF-INSTALL-PATH>
                           To Specify DTF Install Path
   --with-split=<SPLITWRAPPER-PATH>
-                          To Specify SPLIT-WRAPPER Lib Path
+                          To Specify SPLIT-WRAPPER Path
 
 Some influential environment variables:
   MPICC       MPI C Compiler

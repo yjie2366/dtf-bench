@@ -7,7 +7,7 @@
 extern struct dim_pair anal_dims[];
 extern struct dim_pair hist_dims[];
 
-inline char *get_type(nc_type type) {
+char *get_type(nc_type type) {
 	switch(type) {
 		case NC_BYTE:
 			return "BYTE";
@@ -90,58 +90,8 @@ void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix,
 	memcpy(name, tmp, strlen(tmp));
 }
 
-void print_structs(PD *pd)
-{
-	int i, j;
-	int num_files = pd->nfiles;
-
-	printf("Process info: \n\n"
-		"IMAX: %ld  JMAX: %ld  KMAX: %ld\n"
-		"Number of Ensembles: %d\n"
-		"Number of Cycles: %d\n"
-		"Universal Process Rank: %d\n"
-		"Ensemble Process Rank: %d\n"
-		"Size: %d(ens) / %d(world)\n"
-		"Ensemble ID: %d\n"
-		"Number of Processes on X COORD: %d\n"
-		"Numbre of Processes on Y COORD: %d\n"
-		"\n",
-		pd->imax, pd->jmax, pd->kmax,
-		pd->num_ens, pd->cycles, pd->world_rank, pd->ens_rank,
-		pd->ens_size, pd->world_size,
-		pd->ens_id, pd->proc_num_x, pd->proc_num_y);
-
-	printf("Dimension of anal: \n\n");
-	for (i = 0; i < NUM_ANALDIMS; i++) {
-		printf("name: %s length: %ld\n", anal_dims[i].name, anal_dims[i].length);
-	}
-	
-	printf("\nDimension of hist: \n\n");
-	for (i = 0; i < NUM_HISTDIMS; i++) {
-		printf("name: %s length: %ld\n", hist_dims[i].name, hist_dims[i].length);
-	}
-
-	for (i = 0; i < num_files; i++) {
-		int num_vars = (i == ANAL) ? NUM_ANALVARS : NUM_HISTVARS;
-		printf("Variables of File %s:\n", (i == ANAL)? "anal" : "hist");
-
-		for (j = 0; j < num_vars; j++) {
-			int d;
-			struct var_pair *var = &pd->files[i].vars[j];
-			
-			printf("name: %s type: %s ndims: %d dims: ",
-				var->name, get_type(var->type), var->ndims);
-			for (d = 0; d < var->ndims; d++) {
-				printf("%s ", var->dim_name[d]);
-			}
-			printf("\n");
-		}
-	}
-}
-
 MPI_Offset get_databuf_size(PD *pd, int file_idx)
 {
-	MPI_Offset ret = 0;
 	struct file_info *file = NULL;
 	MPI_Offset total_size = 0;
 	int idx;

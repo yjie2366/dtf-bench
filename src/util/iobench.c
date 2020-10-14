@@ -472,12 +472,9 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 
 	for (i = 0; i < file->nvars; i++) {
 		int j;
-		MPI_Offset num = 1;
 		struct var_pair *var = &file->vars[i];
 
 		for (j = 0; j < var->ndims; j++) {
-			int k;
-
 			ret = ncmpi_inq_dimid(fid, var->dim_name[j], &var->dims[j]);
 			check_io(ret, ncmpi_inq_dimid);
 		}
