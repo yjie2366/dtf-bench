@@ -382,7 +382,7 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 	
-	dtf_time_start();
+	if (cycle) dtf_time_start();
 
 	write_axis_vars(pd, HIST, ncid);
 	write_time_var(pd, ncid, cycle);
@@ -397,7 +397,7 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 	
-	dtf_time_end();
+	if (cycle) dtf_time_end();
 
 	return ret;
 }
@@ -438,7 +438,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 
-	dtf_time_start();
+	if (cycle) dtf_time_start();
 
 	write_axis_vars(pd, ANAL, ncid);
 	write_data_vars(pd, ANAL, ncid, cycle);
@@ -452,7 +452,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	dtf_time_end();
+	if (cycle) dtf_time_end();
 
 	return 0;
 }
@@ -484,7 +484,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
-	dtf_time_start();
+	if (cycle) dtf_time_start();
 
 	for (i = ANAL_DATA_VARS_OFFSET; i < file->nvars; i++) {
 		int arr_idx = i - ANAL_DATA_VARS_OFFSET;
@@ -579,7 +579,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	dtf_time_end();
+	if (cycle) dtf_time_end();
 
 	return 0;
 }

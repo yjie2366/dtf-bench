@@ -72,11 +72,11 @@ bin_letkf="${top_dir}/bin/letkf"
 
 if [ -n "${SPLIT_WRAPPER}" ]; then
 	export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
-	mpiexec -np ${np} ${bin_scale} ${bin_opts} : -np ${np} ${bin_letkf} ${bin_opts} \
+	mpiexec -n ${np} ${bin_scale} ${bin_opts} : -n ${np} ${bin_letkf} ${bin_opts} \
 		> ${output_log} 2> ${error_log}
 else
-	mpiexec -np ${np} ${bin_scale} ${bin_opts} > ${output_log} 2> ${error_log} &
-	mpiexec	-np ${np} ${bin_letkf} ${bin_opts} > ${output_log} 2> ${error_log}
+	mpiexec -n ${np} ${bin_scale} ${bin_opts} > ${output_log} 2> ${error_log} &
+	mpiexec	-n ${np} ${bin_letkf} ${bin_opts} > ${output_log} 2> ${error_log}
 fi
 
 if [ "$?" -ne 0 ]; then

@@ -1,6 +1,12 @@
 script_dir=$(cd $(dirname ${BASH_SOURCE[0]}) &> /dev/null && pwd)
+log_dir=${script_dir}/../log
 target="ofp"
 args=()
+group=($(id -nG))
+
+if [ ! -e ${log_dir} ]; then
+	mkdir -p ${log_dir} || exit 1
+fi
 
 while getopts "n:i:j:c:m:o:" OPT; do
 	case ${OPT} in
@@ -59,9 +65,10 @@ cat <<- EOF > ${batch_script}
 #PJM -L "node=$((nprocs * 2))"
 #PJM -L "rscgrp=${rsc}"
 #PJM -L "elapse=00:60:00"
-#PJM -g `id -nG | cut -d" " -f2`
-#PJM -o ${script_dir}/../log/%n.%j.out
-#PJM -e ${script_dir}/../log/%n.%j.err
+#PJM -g ${group[-1]}
+#PJM -o ${log_dir}/%n.%j.out
+#PJM -e ${log_dir}/%n.%j.err
+#PJM --mpi "proc=$((nprocs * 2))"
 #PJM --mpi "max-proc-per-node=1"
 
 sh ${script_dir}/exec.sh ${args[@]}

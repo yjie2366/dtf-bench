@@ -50,7 +50,7 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 		file->nvar_read_buf = num_var;
 	}
 
-	dtf_time_start();
+	if (cycle) dtf_time_start();
 
 	for (i = 0; i < num_var; i++) {
 		int j;
@@ -123,7 +123,7 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	dtf_time_end();
+	if (cycle) dtf_time_end();
 
 	return ret;
 }
@@ -147,7 +147,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		file->nvar_read_buf = LVARS_ANAL;
 	}
 
-	dtf_time_start();
+	if (cycle) dtf_time_start();
 
 	for (i = 0; i < LVARS_ANAL; i++) {
 		int j;
@@ -213,7 +213,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	dtf_time_end();
+	if (cycle) dtf_time_end();
 
 	return ret;
 }
@@ -237,7 +237,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 		file->nvar_write_buf = LVARS_ANAL;
 	}
 
-	dtf_time_start();
+	if (cycle) dtf_time_start();
 
 	for (i = 0; i < LVARS_ANAL; i++) {
 		int j;
@@ -307,7 +307,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	dtf_time_end();
+	if (cycle) dtf_time_end();
 
 	return ret;
 }
