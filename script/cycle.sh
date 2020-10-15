@@ -5,7 +5,7 @@ args=()
 while getopts "n:i:j:c:m:o:" OPT; do
 	case ${OPT} in
 	n)
-		nprocs=$(( ${OPTARG} * 2 ))
+		nprocs=${OPTARG}
 		args+=("-np ${OPTARG}")
 		;;
 	i)
@@ -35,14 +35,16 @@ while getopts "n:i:j:c:m:o:" OPT; do
 done
 
 if [ -z ${nprocs} ]; then
-	echo "[ERROR] Number of processes should be specified"
-	exit 1
+	nprocs=4
 fi
 
 if [ "${target}" = "ofp" ]; then
 	rsc="regular-cache"
 elif [ "${target}" = "fugaku" ]; then
-	rsc="eap-large"
+	rsc="eap-small"
+	if [ $((nprocs*2)) -gt 385 ]; then
+		rsc="eap-large"
+	fi	
 else
 	echo "[ERROR] Unsupported Machine"
 	exit 1
@@ -54,9 +56,13 @@ cat <<- EOF > ${batch_script}
 #!/bin/bash
 #
 #PJM -N "dtf-bench"
-#PJM -L "node=${nprocs}"
+#PJM -L "node=$((nprocs * 2))"
 #PJM -L "rscgrp=${rsc}"
+#PJM -L "elapse=00:60:00"
 #PJM -g `id -nG | cut -d" " -f2`
+#PJM -o ${script_dir}/../log/%n.%j.out
+#PJM -e ${script_dir}/../log/%n.%j.err
+#PJM --mpi "max-proc-per-node=1"
 
 sh ${script_dir}/exec.sh ${args[@]}
 EOF
