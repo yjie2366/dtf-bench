@@ -7,26 +7,6 @@
 extern struct dim_pair anal_dims[];
 extern struct dim_pair hist_dims[];
 
-char *get_type(nc_type type) {
-	switch(type) {
-		case NC_BYTE:
-			return "BYTE";
-		case NC_CHAR:
-			return "CHAR";
-		case NC_SHORT:
-			return "SHORT";
-		case NC_INT:
-			return "INT";
-		case NC_FLOAT:
-			return "FLOAT";
-		case NC_DOUBLE:
-			return "DOUBLE";
-		case NC_NAT:
-		default:
-			return NULL;
-	}
-}
-
 int create_dirs(char *path)
 {
 	int offset = 0;
@@ -147,4 +127,60 @@ MPI_Offset get_databuf_size(PD *pd, int file_idx)
 	}
 
 	return total_size * sizeof(float);
+}
+
+int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int flag, int *ncid)
+{
+	int i, ret, fid;
+	
+	if (flag & FILE_CREATE) {
+		ret = ncmpi_create(comm, file_path, NC_CLOBBER | NC_64BIT_OFFSET,
+					MPI_INFO_NULL, &fid);
+		check_io(ret, ncmpi_create);
+	}
+	else {
+		int mode = (flag & FILE_OPEN_W) ? NC_WRITE : NC_NOWRITE;
+
+		ret = ncmpi_open(comm, file_path, mode, MPI_INFO_NULL, &fid);
+		check_io(ret, ncmpi_open);
+	}
+	
+	for (i = 0; i < file->ndims; i++) {
+		struct dim_pair *dim = &file->dims[i];
+
+		if (flag & FILE_CREATE) {
+			ret = ncmpi_def_dim(fid, dim->name, dim->length, &dim->dimid);
+			check_io(ret, ncmpi_def_dim);
+		}
+		else {
+			ret = ncmpi_inq_dimid(fid, dim->name, &dim->dimid);
+			check_io(ret, ncmpi_inq_dimid);
+		}
+	}
+
+	for (i = 0; i < file->nvars; i++) {
+		int j;
+		struct var_pair *var = &file->vars[i];
+
+		for (j = 0; j < var->ndims; j++) {
+			ret = ncmpi_inq_dimid(fid, var->dim_name[j], &var->dims[j]);
+			check_io(ret, ncmpi_inq_dimid);
+		}
+
+		if (flag & FILE_CREATE) {
+			ret = ncmpi_def_var(fid, var->name, var->type, var->ndims,
+					var->dims, &var->varid);
+			check_io(ret, ncmpi_def_var);
+			int rank = -1;
+			MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		}
+		else {
+			ret = ncmpi_inq_varid(fid, var->name, &var->varid);
+			check_io(ret, ncmpi_inq_varid);
+		}
+	}
+
+	*ncid = fid;
+
+	return 0;
 }

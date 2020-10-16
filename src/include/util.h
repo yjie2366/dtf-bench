@@ -11,6 +11,7 @@
 #include <pnetcdf.h>
 #include "bpconf.h"
 #include "iobench.h"
+#include "constants.h"
 #include "dtf.h"
 
 #define check_error(exp, func) do { \
@@ -44,5 +45,8 @@
 	char *tmp = str;						\
 	for (; *tmp != '\0'; tmp++) *tmp = tolower(*tmp);		\
 	str;})
+
+void init_pd(int argc, char **argv, PD *pd);
+int finalize_pd(PD *pd);
 
 #endif // __UTIL_H_

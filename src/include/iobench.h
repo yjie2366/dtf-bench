@@ -1,8 +1,6 @@
 #ifndef _IOBENCH_H_
 #define _IOBENCH_H_
 
-#include "constants.h"
-
 #define VAR_READ_NEVER		0x00
 #define VAR_READ_ONCE		0x01
 #define VAR_READ_ALWAYS    	0x02
@@ -72,5 +70,10 @@ typedef struct proc_data {
 	int proc_rank_y;
 	MPI_Comm ens_comm;
 } PD;
+
+int create_dirs(char *path);
+void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix, char *name );
+int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int flag, int *ncid);
+MPI_Offset get_databuf_size(PD *pd, int file_idx);
 
 #endif // _IOBENCH_H_

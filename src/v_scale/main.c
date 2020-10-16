@@ -3,6 +3,10 @@
 #include <string.h>
 #include "util.h"
 
+int write_hist(PD *pd, char *dir_path, int cycle);
+int write_anal(PD *pd, char *dir_path, int cycle);
+int read_anal(PD *pd, char *dir_path, int cycle);
+
 int main(int argc, char **argv)
 {
 	int cycle, ret;

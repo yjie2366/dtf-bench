@@ -6,24 +6,7 @@
 
 extern MPI_Datatype subarray_type[];
 
-static int random_float_generator(float *array, MPI_Offset num)
-{
-	int i;
-
-	if (!array) {
-		fprintf(stderr, "[ERROR]: array argument cannot be NULL\n");
-		return -EINVAL;
-	}
-	
-	srand48(time(NULL));
-	for (i = 0; i < num; i++) {
-		array[i] = (float)drand48() * (rand() % 1000);
-	}
-
-	return 0;
-}
-
-int get_subarray_type(struct var_pair *var)
+static int get_subarray_type(struct var_pair *var)
 {
 	if (var->ndims == 2) return XY;
 
