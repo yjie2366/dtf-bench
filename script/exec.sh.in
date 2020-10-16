@@ -55,8 +55,8 @@ for opts; do
 done
 
 if [ -z "$np" ]; then np=4; fi
-if [ -z "$imax" ]; then imax=32; fi
-if [ -z "$jmax" ]; then jmax=20; fi
+if [ -z "$imax" ]; then imax=60; fi
+if [ -z "$jmax" ]; then jmax=60; fi
 if [ -z "$cycles" ]; then cycles=4; fi
 if [ -z "$member" ]; then member=2; fi
 
