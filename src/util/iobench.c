@@ -91,63 +91,40 @@ static void init_subarray_types(PD *pd)
 		int sub_off[3] = { 0 };
 		MPI_Datatype *type = &subarray_type[i];
 
+		size[0] = JA(pd);
+		size[1] = IA(pd);
+		sub_size[0] = JMAX(pd);
+		sub_size[1] = IMAX(pd);
+		sub_off[0] = JHALO;
+		sub_off[1] = IHALO;
+
 		switch (i) {
 		case XY:
 			*type = MPI_FLOAT;
 			continue;
 		case ZXY2:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
 			size[2] = KA;
-			sub_size[0] = JMAX(pd);
-			sub_size[1] = IMAX(pd);
 			sub_size[2] = KMAX;
-			sub_off[0] = JHALO;
-			sub_off[1] = IHALO;
 			sub_off[2] = KS;
 			break;
 		case ZHXY2:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
 			size[2] = KA;
-			sub_size[0] = JMAX(pd);
-			sub_size[1] = IMAX(pd);
 			sub_size[2] = KMAX;
-			sub_off[0] = JHALO;
-			sub_off[1] = IHALO;
 			sub_off[2] = KS - 1;
 			break;
 		case OCEAN:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
 			size[2] = OKMAX;
-			sub_size[0] = JA(pd);
-			sub_size[1] = IA(pd);
 			sub_size[2] = OKMAX;
-			sub_off[0] = 0;
-			sub_off[1] = 0;
 			sub_off[2] = OKS;
 			break;
 		case LAND:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
 			size[2] = LKMAX;
-			sub_size[0] = JA(pd);
-			sub_size[1] = IA(pd);
 			sub_size[2] = LKMAX;
-			sub_off[0] = 0;
-			sub_off[1] = 0;
 			sub_off[2] = LKS;
 			break;
 		case URBAN:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
 			size[2] = UKMAX;
-			sub_size[0] = JA(pd);
-			sub_size[1] = IA(pd);
 			sub_size[2] = UKMAX;
-			sub_off[0] = 0;
-			sub_off[1] = 0;
 			sub_off[2] = UKS;
 			break;
 		default:
