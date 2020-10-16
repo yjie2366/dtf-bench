@@ -37,6 +37,7 @@ int main(int argc, char **argv)
 	/* Prepare init data */
 	write_anal(pd, data_path, 0);
 	read_anal(pd, data_path, 0);
+	
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	/* Start Cycling */
