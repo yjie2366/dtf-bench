@@ -442,8 +442,6 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 
 int read_anal(PD *pd, char *dir_path, int cycle)
 {
-	static int first_run = 0;
-
 	int ret, ncid = -1;
 	int i;
 	char file_path[MAX_PATH_LEN] = { 0 };
@@ -458,11 +456,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		check_error(arrays, malloc);
 		memset(arrays, 0, sizeof(float *) * file->ndata_vars);
 		
-		first_run = 1;
 		file->nvar_read_buf = file->ndata_vars;
-	}
-	else {
-		first_run = 0;
 	}
 
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
@@ -477,82 +471,81 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		MPI_Offset ntypes = 0;
 		MPI_Datatype dtype = MPI_DATATYPE_NULL;
 
-		if ((first_run && (var->rflag & VAR_READ_ONCE)) ||
-				(var->rflag & VAR_READ_ALWAYS) || !cycle) {
-			MPI_Offset *start = malloc(sizeof(MPI_Offset) *ndims * 2);
-			check_error(start, malloc);
-			MPI_Offset *count = start + ndims;
-			MPI_Offset total_size = 0;
+		if (cycle && (var->rflag & VAR_READ_ONCE)) continue;
+		
+		MPI_Offset *start = malloc(sizeof(MPI_Offset) *ndims * 2);
+		check_error(start, malloc);
+		MPI_Offset *count = start + ndims;
+		MPI_Offset total_size = 0;
 
-			int type = get_subarray_type(var);
-	
-			dtype = subarray_type[type];
-			ntypes = (type == XY)? IA(pd)*JA(pd) : 1;
-			
-			switch (type) {
-				case XY:
-					start[0] = JS_inG(pd) - JHALO;
-					start[1] = IS_inG(pd) - IHALO;
-					count[0] = JA(pd);
-					count[1] = IA(pd);
-					break;
-				case ZXY2:
-				case ZHXY2:
-					start[0] = JS_inG(pd);
-					start[1] = IS_inG(pd);
-					start[2] = 0;
-					count[0] = JMAX(pd);
-					count[1] = IMAX(pd);
-					count[2] = KMAX;
-					break;
-				case URBAN:
-					start[0] = JS_inG(pd) - JHALO;
-					start[1] = IS_inG(pd) - IHALO;
-					start[2] = 0;
-					count[0] = JA(pd);
-					count[1] = IA(pd);
-					count[2] = UKMAX;
-					break;
-				case LAND:
-					start[0] = JS_inG(pd) - JHALO;
-					start[1] = IS_inG(pd) - IHALO;
-					start[2] = 0;
-					count[0] = JA(pd);
-					count[1] = IA(pd);
-					count[2] = LKMAX;
-					break;
-				case OCEAN:
-					start[0] = JS_inG(pd) - JHALO;
-					start[1] = IS_inG(pd) - IHALO;
-					start[2] = 0;
-					count[0] = JA(pd);
-					count[1] = IA(pd);
-					count[2] = OKMAX;
-					break;
-				default:
-					fprintf(stderr, "[ERROR] Invalid datatype\n");
-					MPI_Abort(MPI_COMM_WORLD, EINVAL);
-			}
+		int type = get_subarray_type(var);
 
-			total_size = IA(pd) * JA(pd);
-			if (type != XY) {
-				total_size *= (type == ZXY2 || type == ZHXY2)?
-					KA : count[2];
-			}
-
-			if (!array) {
-				array = malloc(sizeof(float) * total_size);
-				check_error(array, malloc);
-				memset(array, -1, sizeof(float) * total_size);
-			}
-
-			ret = ncmpi_iget_vara(ncid, var->varid, start, count,
-					array, ntypes, dtype, NULL);
-			check_io(ret, ncmpi_iget_vara);
-
-			arrays[arr_idx] = array;
-			free(start);
+		dtype = subarray_type[type];
+		ntypes = (type == XY)? IA(pd)*JA(pd) : 1;
+		
+		switch (type) {
+			case XY:
+				start[0] = JS_inG(pd) - JHALO;
+				start[1] = IS_inG(pd) - IHALO;
+				count[0] = JA(pd);
+				count[1] = IA(pd);
+				break;
+			case ZXY2:
+			case ZHXY2:
+				start[0] = JS_inG(pd);
+				start[1] = IS_inG(pd);
+				start[2] = 0;
+				count[0] = JMAX(pd);
+				count[1] = IMAX(pd);
+				count[2] = KMAX;
+				break;
+			case URBAN:
+				start[0] = JS_inG(pd) - JHALO;
+				start[1] = IS_inG(pd) - IHALO;
+				start[2] = 0;
+				count[0] = JA(pd);
+				count[1] = IA(pd);
+				count[2] = UKMAX;
+				break;
+			case LAND:
+				start[0] = JS_inG(pd) - JHALO;
+				start[1] = IS_inG(pd) - IHALO;
+				start[2] = 0;
+				count[0] = JA(pd);
+				count[1] = IA(pd);
+				count[2] = LKMAX;
+				break;
+			case OCEAN:
+				start[0] = JS_inG(pd) - JHALO;
+				start[1] = IS_inG(pd) - IHALO;
+				start[2] = 0;
+				count[0] = JA(pd);
+				count[1] = IA(pd);
+				count[2] = OKMAX;
+				break;
+			default:
+				fprintf(stderr, "[ERROR] Invalid datatype\n");
+				MPI_Abort(MPI_COMM_WORLD, EINVAL);
 		}
+
+		total_size = IA(pd) * JA(pd);
+		if (type != XY) {
+			total_size *= (type == ZXY2 || type == ZHXY2)?
+				KA : count[2];
+		}
+
+		if (!array) {
+			array = malloc(sizeof(float) * total_size);
+			check_error(array, malloc);
+			memset(array, -1, sizeof(float) * total_size);
+		}
+
+		ret = ncmpi_iget_vara(ncid, var->varid, start, count, array,
+				ntypes, dtype, NULL);
+		check_io(ret, ncmpi_iget_vara_float);
+
+		arrays[arr_idx] = array;
+		free(start);
 	}
 	file->var_read_buffers = arrays;
 

@@ -2,7 +2,7 @@
 
 export DTF_VERBOSE_LEVEL=2
 export DTF_GLOBAL_PATH=`pwd`
-export MAX_WORKGROUP_SIZE=2
+#export MAX_WORKGROUP_SIZE=2
 
 SPLIT_WRAPPER=@split_wrapper@
 top_dir=@abs_top_builddir@
