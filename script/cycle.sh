@@ -8,7 +8,7 @@ if [ ! -e ${log_dir} ]; then
 	mkdir -p ${log_dir} || exit 1
 fi
 
-while getopts "n:i:j:c:m:o:" OPT; do
+while getopts "n:i:j:c:m:o:a:u:" OPT; do
 	case ${OPT} in
 	n)
 		nprocs=${OPTARG}
@@ -25,6 +25,12 @@ while getopts "n:i:j:c:m:o:" OPT; do
 		;;
 	m)
 		args+=("-member ${OPTARG}")
+		;;
+	a)
+		args+=("-master ${OPTARG}")
+		;;
+	u)
+		args+=("-run ${OPTARG}")
 		;;
 	o)
 		target=${OPTARG}
@@ -66,12 +72,15 @@ cat <<- EOF > ${batch_script}
 #PJM -L "rscgrp=${rsc}"
 #PJM -L "elapse=00:60:00"
 #PJM -g ${group[-1]}
+#PJM -S
+#PJM --spath ${log_dir}/%n.%j.stat
 #PJM -o ${log_dir}/%n.%j.out
 #PJM -e ${log_dir}/%n.%j.err
 #PJM --mpi "proc=$((nprocs * 2))"
 #PJM --mpi "max-proc-per-node=1"
 
 sh ${script_dir}/exec.sh ${args[@]}
+
 EOF
 
 pjsub ${batch_script}

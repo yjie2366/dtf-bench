@@ -1,15 +1,8 @@
 #!/bin/sh
 
-export DTF_VERBOSE_LEVEL=2
-export DTF_GLOBAL_PATH=`pwd`
-#export MAX_WORKGROUP_SIZE=2
-
 SPLIT_WRAPPER=@split_wrapper@
 top_dir=@abs_top_builddir@
-
-log_dir="${top_dir}/log"
-output_log="${log_dir}/output.log"
-error_log="${log_dir}/error.log"
+log_dir=${top_dir}/log
 
 trap_int()
 {
@@ -19,10 +12,6 @@ trap_int()
 }
 
 trap trap_int SIGINT
-
-if [ ! -e "${log_dir}" ]; then
-	mkdir -p ${log_dir}
-fi
 
 for opts; do
 	if [ "${opts:0:1}" != "-" ]; then
@@ -51,37 +40,74 @@ for opts; do
 			shift
 			member=$1
 			;;
+		run)
+			shift
+			num_run=$1
+			;;
+		master)
+			shift
+			master=$1
+			;;
 	esac
 done
 
 if [ -z "$np" ]; then np=4; fi
-if [ -z "$imax" ]; then imax=60; fi
-if [ -z "$jmax" ]; then jmax=60; fi
+if [ -z "$imax" ]; then imax=80; fi
+if [ -z "$jmax" ]; then jmax=80; fi
 if [ -z "$cycles" ]; then cycles=4; fi
 if [ -z "$member" ]; then member=2; fi
+if [ -z "$master" ]; then master=2; fi
+if [ -z "$num_run" ]; then num_run=1; fi
 
 echo "Executing benchmark with options: "
 echo "Number of Processes: ${np}"
 echo "Grid Size (IMAX*JMAX): ${imax}*${jmax}"
 echo "Number of Ensembles: ${member}"
 echo "Number of Cycles: ${cycles}"
+echo "Number of Master Processes: ${master}"
+
+SCALE_NP=$((np/member))
+if [ ${master} -gt ${SCALE_NP} ];then
+	master=${SCALE_NP}
+fi
+workgroup_size=$((SCALE_NP/master))
+echo "Every ${workgroup_size} procs handled by a master process"
+echo "Benchmark will run ${num_run} time(s)..."
+
+export DTF_VERBOSE_LEVEL=2
+export DTF_GLOBAL_PATH=${top_dir}
+export DTF_IGNORE_IDLE=1
+export MAX_WORKGROUP_SIZE=${workgroup_size}
 
 bin_opts="-imax=${imax} -jmax=${jmax} -member=${member} -cycles=${cycles}"
 bin_scale="${top_dir}/bin/scale"
 bin_letkf="${top_dir}/bin/letkf"
 
-if [ -n "${SPLIT_WRAPPER}" ]; then
-	export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
-	mpiexec -n ${np} ${bin_scale} ${bin_opts} : -n ${np} ${bin_letkf} ${bin_opts} \
-		> ${output_log} 2> ${error_log}
-else
-	mpiexec -n ${np} ${bin_scale} ${bin_opts} > ${output_log} 2> ${error_log} &
-	mpiexec	-n ${np} ${bin_letkf} ${bin_opts} > ${output_log} 2> ${error_log}
-fi
+for run in `seq 1 ${num_run}`; do
+	runlog_dir="${log_dir}/run-${run}-${np}-${master}"
+	if [ ! -e "${runlog_dir}" ]; then
+		mkdir -p ${runlog_dir}
+	fi
 
-if [ "$?" -ne 0 ]; then
-	echo "Error occurred. Please check ${error_log}!"
-else
-	echo "Execution succeeded!"
-fi
+	output_log="${runlog_dir}/output.log"
+	error_log="${runlog_dir}/error.log"
+	if [ -n "${SPLIT_WRAPPER}" ]; then
+		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
+		mpiexec -n ${np} ${bin_scale} ${bin_opts} : -n ${np} ${bin_letkf} ${bin_opts} \
+			> ${output_log} 2> ${error_log}
+	else
+		mpiexec -n ${np} ${bin_scale} ${bin_opts} > ${output_log} 2> ${error_log} &
+		mpiexec	-n ${np} ${bin_letkf} ${bin_opts} > ${output_log} 2> ${error_log}
+	fi
+
+	if [ "$?" -ne 0 ]; then
+		echo "Error occurred. Please check ${error_log}!"
+		mv ${log_dir}/dtf-bench* ${runlog_dir}
+		break
+	else
+		mv ${log_dir}/dtf-bench* ${runlog_dir}
+		echo "Execution succeeded!"
+	fi
+done
+
 trap - SIGINT

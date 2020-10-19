@@ -42,8 +42,6 @@ int main(int argc, char **argv)
 	write_anal(pd, data_path, 0);
 	read_anal(pd, data_path, 0);
 	
-	MPI_Barrier(MPI_COMM_WORLD);
-
 	/* Start Cycling */
 	for (cycle = 1; cycle < pd->cycles; cycle++) {
 		write_hist(pd, data_path, cycle);

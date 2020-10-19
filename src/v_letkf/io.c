@@ -124,6 +124,8 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_time_end();
+	
+	MPI_Barrier(pd->ens_comm);
 
 	return ret;
 }
@@ -214,6 +216,8 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_time_end();
+
+	MPI_Barrier(pd->ens_comm);
 
 	return ret;
 }
@@ -308,6 +312,8 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_time_end();
+
+	MPI_Barrier(pd->ens_comm);
 
 	return ret;
 }

@@ -36,8 +36,6 @@ int main(int argc, char **argv) {
 		data_path[len_path] = '\0';
 	}
 
-	MPI_Barrier(MPI_COMM_WORLD);
-
 	/* Start cycling */
 	for (cycle = 1; cycle < pd->cycles; cycle++) {
 		read_hist(pd, data_path, cycle);

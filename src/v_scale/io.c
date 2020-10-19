@@ -382,6 +382,8 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	
 	if (cycle) dtf_time_end();
 
+	MPI_Barrier(pd->ens_comm);
+
 	return ret;
 }
 
@@ -437,6 +439,8 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 
 	if (cycle) dtf_time_end();
 
+	MPI_Barrier(pd->ens_comm);
+
 	return 0;
 }
 
@@ -472,7 +476,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		MPI_Datatype dtype = MPI_DATATYPE_NULL;
 
 		if (cycle && (var->rflag & VAR_READ_ONCE)) continue;
-		
+	
 		MPI_Offset *start = malloc(sizeof(MPI_Offset) *ndims * 2);
 		check_error(start, malloc);
 		MPI_Offset *count = start + ndims;
@@ -559,6 +563,8 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_time_end();
+
+	MPI_Barrier(pd->ens_comm);
 
 	return 0;
 }
