@@ -380,7 +380,7 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 	
-	if (cycle) dtf_time_end();
+	if (cycle) dtf_writetime_end();
 
 	MPI_Barrier(pd->ens_comm);
 
@@ -437,7 +437,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	if (cycle) dtf_time_end();
+	if (cycle) dtf_writetime_end();
 
 	MPI_Barrier(pd->ens_comm);
 
@@ -562,7 +562,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	if (cycle) dtf_time_end();
+	if (cycle) dtf_readtime_end();
 
 	MPI_Barrier(pd->ens_comm);
 

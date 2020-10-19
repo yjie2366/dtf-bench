@@ -228,6 +228,7 @@ static void init_fileinfo(PD *pd)
 		fp = fopen(filename, "r");
 		check_error(fp, fopen);
 	
+		/* get variable name, type, ndims and mapped dims name */
 		for (j = 0; j < file->nvars; j++) {
 			struct var_pair *var = &file->vars[j];
 			int iter;
