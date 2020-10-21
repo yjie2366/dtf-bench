@@ -4,14 +4,11 @@ target="fugaku"
 args=()
 group=($(id -nG))
 
-# set a number for my job
-NO=1
-
 if [ ! -e ${log_dir} ]; then
 	mkdir -p ${log_dir} || exit 1
 fi
 
-while getopts "n:i:j:c:m:o:a:u:N:" OPT; do
+while getopts "n:i:j:c:m:o:a:u:" OPT; do
 	case ${OPT} in
 	n)
 		nprocs=${OPTARG}
@@ -43,10 +40,6 @@ while getopts "n:i:j:c:m:o:a:u:N:" OPT; do
 			exit 1
 		fi
 		;;
-	N)
-		NO=${OPTARG}
-		args+=("-jobno ${NO}")
-		;;
 	?)
 		echo "[ERROR] Invalid Option"
 		exit 1
@@ -74,7 +67,7 @@ batch_script="${script_dir}/batch.${target}"
 cat <<- EOF > ${batch_script}
 #!/bin/bash
 #
-#PJM -N "d-${NO}"
+#PJM -N "d-${nprocs}"
 #PJM -L "node=$((nprocs * 2))"
 #PJM -L "rscgrp=${rsc}"
 #PJM -L "elapse=00:60:00"

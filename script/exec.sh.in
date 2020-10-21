@@ -48,10 +48,6 @@ for opts; do
 			shift
 			master=$1
 			;;
-		jobno)
-			shift
-			jobno=$1
-			;;
 	esac
 done
 
@@ -62,7 +58,6 @@ if [ -z "$cycles" ]; then cycles=4; fi
 if [ -z "$member" ]; then member=2; fi
 if [ -z "$master" ]; then master=2; fi
 if [ -z "$num_run" ]; then num_run=1; fi
-if [ -z "$jobno" ]; then jobno=1; fi
 
 echo "Executing benchmark with options: "
 echo "Number of Processes: ${np}"
@@ -96,6 +91,8 @@ for run in `seq 1 ${num_run}`; do
 
 	output_log="${runlog_dir}/output-${run}.log"
 	error_log="${runlog_dir}/error-${run}.log"
+	per_proc_log="${log_dir}/d-${np}.${PJM_JOBID}.*.${run}.*"
+
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
 		mpiexec -n ${np} ${bin_scale} ${bin_opts} : -n ${np} ${bin_letkf} ${bin_opts} \
@@ -106,11 +103,11 @@ for run in `seq 1 ${num_run}`; do
 	fi
 
 	if [ "$?" -ne 0 ]; then
-		mv ${log_dir}/d-${jobno}.*.${run}.* ${runlog_dir}
+		mv ${per_proc_log} ${runlog_dir}
 		echo "Error occurred. Please check ${error_log}!"
 		break
 	else
-		mv ${log_dir}/d-${jobno}.*.${run}.* ${runlog_dir}
+		mv ${per_proc_log} ${runlog_dir}
 		echo "Execution succeeded!"
 	fi
 done
