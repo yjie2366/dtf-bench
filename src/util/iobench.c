@@ -222,7 +222,7 @@ static void init_fileinfo(PD *pd)
 		
 		/* Initialize variable information */
 		file->vars = (struct var_pair *)malloc(file->nvars * sizeof(struct var_pair));
-		check_error(file->vars, calloc);
+		check_error(file->vars, malloc);
 		memset(file->vars, 0, sizeof(file->nvars * sizeof(struct var_pair)));
 
 		fp = fopen(filename, "r");
@@ -254,27 +254,6 @@ static void init_fileinfo(PD *pd)
 			for (iter = 0; iter < num_var_dims; iter++) {
 				ret = fscanf(fp, "%s", var->dim_name[iter]);
 				check_error(ret == 1, fscanf);
-			}
-
-			// Initiate variable rwflag
-			if (i == ANAL) {
-				if (j < ANAL_DATA_VARS_OFFSET) { 
-					var->rflag |= VAR_READ_NEVER;
-				}
-				else {
-					if (    strstr(var_name, "LAND")  ||
-						strstr(var_name, "URBAN") ||
-						strstr(var_name, "OCEAN") ||
-						strstr(var_name, "TKE")   ||
-						strstr(var_name, "FLX")   ||
-						strstr(var_name, "SFC")	) {
-
-						var->rflag |= VAR_READ_ONCE;
-					}
-					else {
-						var->rflag |= VAR_READ_ALWAYS;
-					}
-				}
 			}
 		}
 
@@ -389,24 +368,27 @@ int finalize_pd(PD *pd)
 
 		if (file->axes_buffer) {
 			for (j = 0; j < (file->naxes_buf); j++) {
-				if (file->axes_buffer[j]) 
-					free(file->axes_buffer[j]);
+				struct data_buf *buf = &file->axes_buffer[j];
+				if (buf->shape) free(buf->shape);
+				if (buf->data) free(buf->data);
 			}
 			free(file->axes_buffer);
 		}
 
 		if (file->var_write_buffers) {
 			for (j = 0; j < file->nvar_write_buf; j++) {
-				if (file->var_write_buffers[j])
-					free(file->var_write_buffers[j]);	
+				struct data_buf *buf = &file->var_write_buffers[j];
+				if (buf->shape) free(buf->shape);
+				if (buf->data) free(buf->data);
 			}
 			free(file->var_write_buffers);
 		}
 		
 		if (file->var_read_buffers) {
 			for (j = 0; j < file->nvar_read_buf; j++) {
-				if (file->var_read_buffers[j])
-					free(file->var_read_buffers[j]);	
+				struct data_buf *buf = &file->var_read_buffers[j];
+				if (buf->shape) free(buf->shape);
+				if (buf->data) free(buf->data);
 			}
 			free(file->var_read_buffers);
 		}
@@ -434,6 +416,8 @@ int finalize_pd(PD *pd)
 			if (combiner != MPI_COMBINER_NAMED) {
 				MPI_Type_free(&subarray_type[i]);
 			}
+
+			subarray_type[i] = MPI_DATATYPE_NULL;
 		}
 	}
 	MPI_Comm_free(&pd->ens_comm);

@@ -8,7 +8,7 @@ int read_anal(PD *pd, char *dir_path, int cycle);
 int write_anal(PD *pd, char *dir_path, int cycle);
 
 int main(int argc, char **argv) {
-	int cycle = 1, ret;
+	int cycle = 0, ret;
 	int len_path;
 	char *env = NULL;
 	char data_path[MAX_PATH_LEN] = { 0 };
@@ -37,11 +37,11 @@ int main(int argc, char **argv) {
 	}
 
 	/* Start cycling */
-	for (cycle = 1; cycle < pd->cycles; cycle++) {
+//	for (cycle = 0; cycle < pd->cycles; cycle++) {
 		read_hist(pd, data_path, cycle);
-		read_anal(pd, data_path, cycle);
-		write_anal(pd, data_path, cycle);
-	}
+//		read_anal(pd, data_path, cycle);
+//		write_anal(pd, data_path, cycle);
+//	}
 
 	finalize_pd(pd);
 	free(pd);

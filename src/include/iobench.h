@@ -1,10 +1,6 @@
 #ifndef _IOBENCH_H_
 #define _IOBENCH_H_
 
-#define VAR_READ_NEVER		0x00
-#define VAR_READ_ONCE		0x01
-#define VAR_READ_ALWAYS    	0x02
-
 #define FILE_CREATE	0x04
 #define FILE_OPEN_W	0x08
 #define FILE_OPEN_R	0x10
@@ -21,32 +17,46 @@ struct dim_pair {
 struct var_pair {
 	int *dims; 		// WRITTEN BY NCMPI CALL
 	int varid; 		// WRITTEN BY NCMPI CALL
-	int rflag;
-	int wflag;
 	nc_type type;		// READ FROM FILE
 	unsigned int ndims;	// READ FROM FILE
 	char (*dim_name)[NC_MAX_NAME+1]; // READ FROM FILE
 	char name[64];		// READ FROM FILE
 };
 
-/* TODO: replace each buffer in file_info with this struct */
-struct data_buffer {
-	int num_buf;
-	MPI_Offset *size_list;
-	float **buffer;
+struct data_buf {
+	// which variable this buffer belongs to
+	int varid;
+	// for getting the layout of shape and idxes
+	int ndims;
+	int nelems;
+	/* shape in PnetCDF file
+	 *
+	 * [0 ... ndims-1] = start
+	 * [ndims ... ndims*2-1] = count
+	 */
+	MPI_Offset *shape;
+
+	/* region without halo in data buffer
+	 *
+	 * [0 ... ndims-1] = start_idxes
+	 * [ndims ... ndims*2-1] = end_idxes
+	 */
+	MPI_Offset *idxes;
+	/* where data is stored */
+	float *data;
 };
 
 struct file_info {
-	int ndims;   // Total number of dimensions
-	int nvars;     // Total number of variables
+	int ndims;   // Total number of PnetCDF dimensions
+	int nvars;     // Total number of PnetCDF variables
 	int nassct_coords;  // Number of associated coordinate variables
 	int ndata_vars;     // Number of data variables
 	int naxes_buf;  // Number of axes buffer
 	int nvar_read_buf;   // Number of data read buffer
 	int nvar_write_buf;  // Number of data write buffer
-	float **axes_buffer;
-	float **var_read_buffers;
-	float **var_write_buffers;
+	struct data_buf *axes_buffer;
+	struct data_buf *var_read_buffers;
+	struct data_buf *var_write_buffers;
 	struct dim_pair *dims;
 	struct var_pair *vars;
 };
@@ -75,5 +85,7 @@ int create_dirs(char *path);
 void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix, char *name );
 int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int flag, int *ncid);
 MPI_Offset get_databuf_size(PD *pd, int file_idx);
+void reset_seed(float c, float a, int seed);
+float get_float(float c, float w);
 
 #endif // _IOBENCH_H_

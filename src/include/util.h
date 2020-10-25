@@ -14,8 +14,16 @@
 #include "constants.h"
 #include "dtf.h"
 
+#ifdef __GNUC__
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
+#else
+#define likely(x)       (x)
+#define unlikely(x)     (x)
+#endif
+
 #define check_error(exp, func) do { \
-	if (!(exp)) { \
+	if (unlikely(!(exp))) { \
 		fprintf(stderr, #func" at line %d in file %s [ERROR]: %s\n", \
 			__LINE__, __FILE__, (char *)strerror(errno)); \
 		MPI_Abort(MPI_COMM_WORLD, -1);				\
@@ -23,7 +31,7 @@
 } while (0)
 
 #define check_mpi(errcode, func) do {						\
-	if (errcode != MPI_SUCCESS) {					\
+	if (unlikely(errcode != MPI_SUCCESS)) {					\
 		char error_msg[MPI_MAX_ERROR_STRING];			\
 		int str_len;						\
 		MPI_Error_string((errcode), error_msg, &str_len);		\
@@ -34,7 +42,7 @@
 } while (0)
 
 #define check_io(errcode, func) do {						\
-	if (errcode != NC_NOERR) {					\
+	if (unlikely(errcode != NC_NOERR)) {					\
 		fprintf(stderr, #func" at line %d in file %s [IO ERROR]: %s\n", \
 			__LINE__, __FILE__, ncmpi_strerror(errcode)); \
 		MPI_Abort(MPI_COMM_WORLD, (errcode));			\

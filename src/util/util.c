@@ -7,6 +7,174 @@
 extern struct dim_pair anal_dims[];
 extern struct dim_pair hist_dims[];
 
+static float pseudo_rand = 1.0;
+
+void reset_seed(float c, float a, int seed)
+{ 
+	pseudo_rand = (seed % 1000) * c + a;
+}
+
+float get_float(float c, float w)
+{
+	pseudo_rand = ((int)pseudo_rand % 1000) * c + w;
+	return pseudo_rand;
+}
+
+int fill_buffer(struct data_buf *buf, float c, float a, float w)
+{
+	int varid = buf->varid;
+	int ndims = buf->ndims;
+	MPI_Offset d1, d2, d3, d4;
+	MPI_Offset *count = buf->shape + ndims;
+	MPI_Offset *s_idx = buf->idxes;
+	MPI_Offset *e_idx = s_idx + ndims;
+	float *data = buf->data;
+
+	reset_seed(c, a, varid);
+
+	if (ndims == 1) {
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
+			data[d1] = get_float(c, w);
+	}
+	else if (ndims == 2) {
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
+		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++) {
+			MPI_Offset idx = d1 * count[1] + d2;
+			data[idx] = get_float(c, w);
+		}
+	}
+	else if (ndims == 3) {
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
+		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++)
+		for (d3 = s_idx[2]; d3 < e_idx[2]; d3++) {
+			MPI_Offset idx = d1 * count[1] * count[2] 
+					+ d2 * count[2] + d3;
+			data[idx] = get_float(c, w);
+		}
+	}
+	else if (ndims == 4) {
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
+		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++)
+		for (d3 = s_idx[2]; d3 < e_idx[2]; d3++)
+		for (d4 = s_idx[3]; d4 < e_idx[3]; d4++) {
+			MPI_Offset idx = d1 * count[1] * count[2] * count[3]
+					+ d2 * count[2] * count[3]
+					+ d3 * count[3] + d4;
+			data[idx] = get_float(c, w);
+		}
+	}
+	else {
+		fprintf(stderr, "[ERROR] Invalid number of dimension %d\n", ndims);
+		errno = EINVAL;
+
+		return errno;
+	}
+
+	return 0;	
+}
+
+int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight)
+{
+	int j;
+	int varid = buf->varid;
+	int ndims = buf->ndims;
+	MPI_Offset d1, d2, d3, d4, cnt = 0;
+
+	MPI_Offset *count = buf->shape + ndims;
+	MPI_Offset *s_idx = buf->idxes;
+	MPI_Offset *e_idx = s_idx + ndims;
+	float *data = buf->data;
+	float *expect = NULL;
+
+	if (unlikely(!buf || !data)) {
+		fprintf(stderr, "[ERROR] Invalid buffer!\n");
+		errno = EINVAL;
+
+		return errno;
+	}
+
+	if (unlikely((ndims > 4) || (ndims < 2))) {
+		fprintf(stderr, "[ERROR] Comparing %d-D array unsupported\n", ndims);
+		errno = EINVAL;
+
+		return errno;
+	}
+	
+	int rank = pd->world_rank;
+	MPI_Offset nelems = IMAX(pd) * JMAX(pd);
+	if (ndims > 2) nelems *= KMAX;
+
+	expect = malloc(sizeof(float) * nelems);
+	check_error(expect, malloc);
+
+	reset_seed(rank, cycle, varid);
+	for (j = 0; j < nelems; j++) {
+		expect[j] = get_float(rank, weight);
+	}
+
+	if (ndims == 2) {
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
+		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++) {
+			MPI_Offset idx = d1 * count[1] + d2;
+			float exp = expect[cnt++];
+
+			if (exp != data[idx]) {
+				fprintf(stderr, "[ERROR] Unmatched value of var ID "
+						"%d [%ld, %ld]\n",
+						varid, d1, d2);
+				fprintf(stderr, "Expect: %f Acquired: %f\n",
+					exp, data[idx]);
+				errno = EINVAL;
+				return errno;
+			}
+		}
+	}
+	else if (ndims == 3) {
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
+		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++)
+		for (d3 = s_idx[2]; d3 < e_idx[2]; d3++) {
+			MPI_Offset idx =  d1 * count[1] * count[2] 
+					+ d2 * count[2] + d3;
+			float exp = expect[cnt++];
+
+			if (exp != data[idx]) {
+				fprintf(stderr, "[ERROR] Unmatched value of var ID "
+						"%d [%ld, %ld, %ld]\n",
+						varid, d1, d2, d3);
+				fprintf(stderr, "Expect: %f Acquired: %f\n",
+					exp, data[idx]);
+				errno = EINVAL;
+				return errno;
+			}
+		}
+	}
+	else if (ndims == 4) {
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
+		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++)
+		for (d3 = s_idx[2]; d3 < e_idx[2]; d3++)
+		for (d4 = s_idx[3]; d4 < e_idx[3]; d4++) {
+			MPI_Offset idx =  d1 * count[1] * count[2] * count[3]
+					+ d2 * count[2] * count[3]
+					+ d3 * count[3] + d4;
+			float exp = expect[cnt++];
+
+			if (exp != data[idx]) {
+				fprintf(stderr, "[ERROR] Unmatched value of var ID "
+						"%d [%ld, %ld, %ld]\n",
+						varid, d1, d2, d3);
+				fprintf(stderr, "Expect: %f Acquired: %f\n",
+					exp, data[idx]);
+				errno = EINVAL;
+				return errno;
+			}
+		}
+	}
+
+	free(expect);
+
+	return 0;
+}
+
 int create_dirs(char *path)
 {
 	int offset = 0;
@@ -15,7 +183,9 @@ int create_dirs(char *path)
 	
 	if (strlen(path) >= MAX_PATH_LEN) {
 		fprintf(stderr, "[ERROR] %s Path %s is too long to process.\n", __func__, path);
-		return EINVAL;
+		errno = EINVAL;
+
+		return errno;
 	}
 	
 	memcpy(tmp, path, strlen(path)+1);
@@ -78,13 +248,17 @@ MPI_Offset get_databuf_size(PD *pd, int file_idx)
 
 	if (!pd->files) {
 		fprintf(stderr, "[ERROR]: files info are not filled yet\n");
-		return -1;
+		errno = EINVAL;
+
+		return -errno;
 	}
 	
 	file = &pd->files[file_idx];
 	if (!file->dims || !file->vars) {
 		fprintf(stderr, "[ERROR]: dims and vars are not filled yet\n");
-		return -1;
+		errno = EINVAL;
+
+		return -errno;
 	}
 
 	idx = (file_idx == ANAL)? ANAL_DATA_VARS_OFFSET : HIST_DATA_VARS_OFFSET;
@@ -120,6 +294,12 @@ MPI_Offset get_databuf_size(PD *pd, int file_idx)
 			}
 			else if (!(strcmp(name, "time"))) {
 				dim_size = 1;
+			}
+			else {
+				fprintf(stderr, "[ERROR] Unrecoginized dimension: %s\n", name);
+				errno = EINVAL;
+
+				return -errno;
 			}
 			total_dim_size *= dim_size;
 		}
@@ -184,3 +364,21 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 
 	return 0;
 }
+
+int find_var(struct file_info *file, char *var_name)
+{
+	int idx = -1, j;
+
+	for (j = NUM_AXIS_VARS; j < file->nvars; j++) {
+		char *name = file->vars[j].name;
+
+		if (strlen(name) != strlen(var_name)) continue;
+		if (memcmp(name, var_name, strlen(name))) continue;
+
+		idx = j; 
+		break;
+	}
+
+	return idx;
+}
+

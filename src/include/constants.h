@@ -2,14 +2,17 @@
 #ifndef _CONSTANTS_H_
 #define _CONSTANTS_H_
 
-#define NUM_DATATYPE 6
-#define NUM_ANALDIMS 33
-#define NUM_HISTDIMS 35
+#define SCALE_WEIGHT	((float)0.0)
+#define LETKF_WEIGHT 	((float)5.0)
 
-#define NUM_ANALVARS 143
-#define NUM_HISTVARS 89
+#define NUM_DATATYPE	6
+#define NUM_ANALDIMS	33
+#define NUM_HISTDIMS	35
 
-#define NUM_AXIS_VARS 51
+#define NUM_ANALVARS	143
+#define NUM_HISTVARS	89
+
+#define NUM_AXIS_VARS	51
 #define NUM_ANAL_ASSOCIATECOORD_VARS 10
 #define NUM_HIST_ASSOCIATECOORD_VARS 18
 

@@ -2,7 +2,6 @@
 
 #define LVARS_ANAL 	11
 #define LVARS_HIST 	20
-#define LETKF_WEIGHT 	10
 
 static char *anal_vars[LVARS_ANAL] = {
 	"DENS", "MOMX", "MOMY", "MOMZ", "RHOT", "QV",
@@ -15,101 +14,106 @@ static char *hist_vars[LVARS_HIST] = {
 	"topo", "SFC_PRES", "PREC", "U10", "V10", "T2", "Q2"
 };
 
-static inline int find_var(PD *pd, int file_idx, char *var_name)
-{
-	int idx = -1, j;
-	int offset = NUM_AXIS_VARS;
-	struct file_info *file = &pd->files[file_idx];
-
-	for (j = offset; j < file->nvars; j++) {
-		if (strcmp(file->vars[j].name, var_name)) continue;
-		idx = j; 
-		break;
-	}
-
-	return idx;
-}
-
 int read_hist(PD *pd, char *dir_path, int cycle)
 {
-	int i, ncid;
+	int i, ncid, first_run = 0;
 	int ret = 0;
 	char file_path[MAX_PATH_LEN] = { 0 };
 	struct file_info *file = &pd->files[HIST];
-	float **var_arrays = file->var_read_buffers;
+	struct data_buf *arrays = file->var_read_buffers;
 	int num_var = LVARS_HIST;
 	
-	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".hist.nc", file_path);
-
-	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
-
-	if (!var_arrays) {
-		var_arrays = (float **)malloc(sizeof(float *) * num_var);
-		check_error(var_arrays, malloc);
-		memset(var_arrays, 0, sizeof(float *) * num_var);
+	if (!arrays) {
+		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * num_var);
+		check_error(arrays, malloc);
+		memset(arrays, 0, sizeof(struct data_buf) * num_var);
 		file->nvar_read_buf = num_var;
+		first_run = 1;
 	}
+
+	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".hist.nc", file_path);
+	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
 	if (cycle) dtf_time_start();
 
 	for (i = 0; i < num_var; i++) {
-		int j;
-		int idx = -1;
-		MPI_Offset total_count = 1;
+		struct data_buf *array = &arrays[i];
+		int varid = array->varid, ndims = array->ndims;
 		struct var_pair *var = NULL;
-		MPI_Offset *start = NULL;
-		MPI_Offset *count = NULL;
-		float *array = NULL;
+		MPI_Offset *start, *count;
+		float *data = array->data;
 
-		ret = ncmpi_inq_varid(ncid, hist_vars[i], &idx);
-		check_io(ret, ncmpi_inq_varid);
-		var = &file->vars[idx];
-
-		if (strcmp(var->name, hist_vars[i])) {
-			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", hist_vars[i]);
-			idx = find_var(pd, HIST, hist_vars[i]);
-			check_error(idx >= 0, find_var);
-			var = &file->vars[idx];
+		if (first_run) {
+			ret = ncmpi_inq_varid(ncid, hist_vars[i], &varid);
+			check_io(ret, ncmpi_inq_varid);
 		}
 
-		start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * var->ndims * 2);
-		check_error(start, malloc);
-		count = start + var->ndims;
+		var = &file->vars[varid];
+		if (unlikely(strcmp(var->name, hist_vars[i]))) {
+			int idx;
+			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", hist_vars[i]);
+			idx = find_var(file, hist_vars[i]);
+			check_error(idx >= NUM_AXIS_VARS, find_var);
 
-		/* History files have no halo */
-		for (j = 0; j < var->ndims; j++) {
-			if (strchr(var->dim_name[j], 'z')) {
-				start[j] = 0;
-				count[j] = KMAX;
-			}
-			else if (strchr(var->dim_name[j], 'y')) {
-				start[j] = pd->proc_rank_y * JMAX(pd);
-				count[j] = JMAX(pd);
-			}
-			else if (strchr(var->dim_name[j], 'x')) {
-				start[j] = pd->proc_rank_x * IMAX(pd);
-				count[j] = IMAX(pd);
-			}
-			else if (strstr(var->dim_name[j], "time")) {
-				start[j] = 0;
-				count[j] = 1;
-			}
-			total_count *= count[j];
+			var = &file->vars[idx];
+			array->varid = var->varid;
 		}
 		
-		array = var_arrays[i];
-		if (!array) {
-			array = (float *)malloc(sizeof(float) * total_count);
-			check_error(array, malloc);
-			memset(array, 0, total_count * sizeof(float));
+		if (first_run) {
+			int j;
+			MPI_Offset total_count = 1;
+			MPI_Offset *s_idx, *e_idx;
+
+			ndims = var->ndims;
+			
+			start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 4);
+			check_error(start, malloc);
+
+			count = start + ndims;
+			s_idx = count + ndims;
+			e_idx = s_idx + ndims;
+
+			/* History files have no halo */
+			for (j = 0; j < ndims; j++) {
+				if (strchr(var->dim_name[j], 'z')) {
+					start[j] = 0;
+					count[j] = KMAX;
+				}
+				else if (strchr(var->dim_name[j], 'y')) {
+					start[j] = pd->proc_rank_y * JMAX(pd);
+					count[j] = JMAX(pd);
+				}
+				else if (strchr(var->dim_name[j], 'x')) {
+					start[j] = pd->proc_rank_x * IMAX(pd);
+					count[j] = IMAX(pd);
+				}
+				else if (strstr(var->dim_name[j], "time")) {
+					start[j] = 0;
+					count[j] = 1;
+				}
+				s_idx[j] = 0;
+				e_idx[j] = count[j];
+				total_count *= count[j];
+			}
+			
+			data = (float *)malloc(sizeof(float) * total_count);
+			check_error(data, malloc);
+			memset(data, 0, total_count * sizeof(float));
+		
+			array->data = data;
+			array->shape = start;
+			array->idxes = s_idx;
+			array->ndims = ndims;
+			array->varid = varid;
+			array->nelems = total_count;
+		}
+		else {
+			start = array->shape;
+			count = start + ndims;
 		}
 
-		ret = ncmpi_iget_vara_float(ncid, var->varid, start, count, array, NULL);
+		ret = ncmpi_iget_vara_float(ncid, varid, start, count, data, NULL);
 		check_io(ret, ncmpi_iget_vara_float);
-
-		var_arrays[i] = array;
-		free(start);
-	
 	}
 
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
@@ -118,186 +122,259 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 	
-	file->var_read_buffers = var_arrays;
-
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_readtime_end();
 	
-	MPI_Barrier(pd->ens_comm);
+//	if (!pd->world_rank) {
+//		int idx;
+//		for (idx = 0; idx < num_var; idx++) {
+//			int j;
+//			fprintf(stderr, "Variable: %s\n", hist_vars[idx]);
+//			for (j = 0; j < arrays[idx].nelems; j++) {
+//				fprintf(stderr, "%f ", arrays[idx].data[j]);
+//			}
+//			fprintf(stderr, "\n");
+//		}
+//	}
+
+	file->var_read_buffers = arrays;
+
+	/* Check validity of read values */
+	for (i = 0; i < num_var; i++) {
+		struct data_buf *read_buf = &file->var_read_buffers[i];
+
+	//	ret = compare_buffer(pd, read_buf, cycle, SCALE_WEIGHT);
+	//	check_error(!ret, compare_buffer);
+	}
 
 	return ret;
 }
 
 int read_anal(PD *pd, char *dir_path, int cycle)
 {
-	int i, ncid;
+	int i, ncid, first_run = 0;
 	int ret = 0;
 	char file_path[MAX_PATH_LEN] = { 0 };
 	struct file_info *file = &pd->files[ANAL];
-	float **var_arrays = file->var_read_buffers;
+	struct data_buf *arrays = file->var_read_buffers;
+	int num_var = LVARS_ANAL;
 
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".anal.nc", file_path);
-	
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
-	if (!var_arrays) {
-		var_arrays = (float **)malloc(sizeof(float *) * LVARS_ANAL);
-		check_error(var_arrays, malloc);
-		memset(var_arrays, 0, sizeof(float *) * LVARS_ANAL);
-		file->nvar_read_buf = LVARS_ANAL;
+	if (!arrays) {
+		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * num_var);
+		check_error(arrays, malloc);
+		memset(arrays, 0, sizeof(struct data_buf) * num_var);
+		file->nvar_read_buf = num_var;
+		first_run = 1;
 	}
 
 	if (cycle) dtf_time_start();
 
-	for (i = 0; i < LVARS_ANAL; i++) {
+	for (i = 0; i < num_var; i++) {
 		int j;
-		int idx = -1;
-		MPI_Offset total_count = 1;
+		struct data_buf *array = &arrays[i];
+		int varid = array->varid;
+		int ndims = array->ndims;
+		float *data = array->data;
+
 		struct var_pair *var = NULL;
-		MPI_Offset *start = NULL;
-		MPI_Offset *count = NULL;
-		float *array = NULL;
+		MPI_Offset *start, *count;
 
-		ret = ncmpi_inq_varid(ncid, anal_vars[i], &idx);
-		check_io(ret, ncmpi_inq_varid);
-		var = &file->vars[idx];
+		if (first_run) {
+			ret = ncmpi_inq_varid(ncid, anal_vars[i], &varid);
+			check_io(ret, ncmpi_inq_varid);
+		}
 
-		if (strcmp(var->name, anal_vars[i])) {
+		var = &file->vars[varid];
+		if (unlikely(strcmp(var->name, anal_vars[i]))) {
+			int idx;
 			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
-			idx = find_var(pd, ANAL, anal_vars[i]);
-			check_error(idx >= 0, find_var);
+			idx = find_var(file, anal_vars[i]);
+			check_error(idx >= NUM_AXIS_VARS, find_var);
+			
 			var = &file->vars[idx];
+			array->varid = var->varid;
 		}
 
-		start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * var->ndims * 2);
-		check_error(start, malloc);
-		count = start + var->ndims;
+		if (first_run) {
+			MPI_Offset *s_idx, *e_idx;
+			MPI_Offset total_count = 1;
 
-		for (j = 0; j < var->ndims; j++) {
-			if (strchr(var->dim_name[j], 'z')) {
-				start[j] = 0;
-				count[j] = KMAX;
+			ndims = var->ndims;
+			start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 4);
+			check_error(start, malloc);
+			
+			count = start + ndims;
+			s_idx = count + ndims;
+			e_idx = s_idx + ndims;
+
+			for (j = 0; j < ndims; j++) {
+				if (strchr(var->dim_name[j], 'z')) {
+					start[j] = 0;
+					count[j] = KMAX;
+				}
+				else if (strchr(var->dim_name[j], 'y')) {
+					start[j] = pd->proc_rank_y * JMAX(pd) + JHALO;
+					count[j] = JMAX(pd);
+				}
+				else if (strchr(var->dim_name[j], 'x')) {
+					start[j] = pd->proc_rank_x * IMAX(pd) + IHALO;
+					count[j] = IMAX(pd);
+				}
+
+				total_count *= count[j];
+				s_idx[j] = 0;
+				e_idx[j] = count[j];
 			}
-			else if (strchr(var->dim_name[j], 'y')) {
-				start[j] = pd->proc_rank_y * JMAX(pd) + JHALO;
-				count[j] = JMAX(pd);
-			}
-			else if (strchr(var->dim_name[j], 'x')) {
-				start[j] = pd->proc_rank_x * IMAX(pd) + IHALO;
-				count[j] = IMAX(pd);
-			}
-			total_count *= count[j];
+
+			data = (float *)malloc(sizeof(float) * total_count);
+			check_error(data, malloc);
+			memset(data, -1, sizeof(float) * total_count);
+
+			array->ndims = ndims;
+			array->shape = start;
+			array->idxes = s_idx;
+			array->varid = varid;
+			array->data = data;
+			array->nelems = total_count;
+		}
+		else {
+			start = array->shape;
+			count = start + ndims;
 		}
 
-		array = var_arrays[i];
-		if (!array) {
-			array = (float *)malloc(sizeof(float) * total_count);
-			check_error(array, malloc);
-		}
-		
-		ret = ncmpi_iget_vara_float(ncid, var->varid, start, count, array, NULL);
+		ret = ncmpi_iget_vara_float(ncid, var->varid, start, count, data, NULL);
 		check_io(ret, ncmpi_iget_vara_float);
-
-		var_arrays[i] = array;
-		free(start);
-
 	}
+
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
-	file->var_read_buffers = var_arrays;
-
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_readtime_end();
+	
+	file->var_read_buffers = arrays;
 
-	MPI_Barrier(pd->ens_comm);
+	// Check validity of read values
+	for (i = 0; i < num_var; i++) {
+		struct data_buf *read_buf = &file->var_read_buffers[i];
+		
+		ret = compare_buffer(pd, read_buf, cycle, SCALE_WEIGHT);
+		check_error(!ret, compare_buffer);
+	}
 
 	return ret;
 }
 
 int write_anal(PD *pd, char *dir_path, int cycle)
 {
-	int ret = 0, i;
 	int ncid = -1;
+	int i, ret = 0, first_run = 0;
+	int num_var = LVARS_ANAL;
 	char file_path[MAX_PATH_LEN] = { 0 };
 	struct file_info *file = &pd->files[ANAL];
-	float **var_arrays = file->var_write_buffers;
+	struct data_buf *arrays = file->var_write_buffers;
 
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".anal.nc", file_path);
-
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_W, &ncid);
 
-	if (!var_arrays) {
-		var_arrays = (float **)malloc(sizeof(float *) * LVARS_ANAL);
-		check_error(var_arrays, malloc);
-		memset(var_arrays, 0, sizeof(float *) * LVARS_ANAL);
-		file->nvar_write_buf = LVARS_ANAL;
+	if (!arrays) {
+		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * num_var);
+		check_error(arrays, malloc);
+		memset(arrays, 0, sizeof(struct data_buf) * num_var);
+		file->nvar_write_buf = num_var;
+		first_run = 1;
 	}
 
 	if (cycle) dtf_time_start();
 
-	for (i = 0; i < LVARS_ANAL; i++) {
-		int j;
-		int idx = -1;
-		MPI_Offset total_count = 1;
+	for (i = 0; i < num_var; i++) {
 		struct var_pair *var = NULL;
-		MPI_Offset *start = NULL;
-		MPI_Offset *count = NULL;
-		float *array = NULL;
+		struct data_buf *array = &arrays[i];
+		int varid = array->varid;
+		int ndims = array->ndims;
+		
+		MPI_Offset *start, *count;
+		float *data = array->data;
 
-		ret = ncmpi_inq_varid(ncid, anal_vars[i], &idx);
-		check_io(ret, ncmpi_inq_varid);
-		var = &file->vars[idx];
-
-		if (strcmp(var->name, anal_vars[i])) {
-			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
-			idx = find_var(pd, ANAL, anal_vars[i]);
-			check_error(idx >= 0, find_var);
-			var = &file->vars[idx];
-		}
-
-		start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * var->ndims * 2);
-		check_error(start, malloc);
-		count = start + var->ndims;
-
-		for (j = 0; j < var->ndims; j++) {
-			if (strchr(var->dim_name[j], 'z')) {
-				start[j] = 0;
-				count[j] = KMAX;
-			}
-			else if (strchr(var->dim_name[j], 'y')) {
-				start[j] = pd->proc_rank_y * JMAX(pd) + JHALO;
-				count[j] = JMAX(pd);
-			}
-			else if (strchr(var->dim_name[j], 'x')) {
-				start[j] = pd->proc_rank_x * IMAX(pd) + IHALO;
-				count[j] = IMAX(pd);
-			}
-			total_count *= count[j];
-		}
-
-		array = var_arrays[i];
-		if (!array) {
-			array = (float *)malloc(sizeof(float) * total_count);
-			check_error(array, malloc);
+		if (first_run) {
+			ret = ncmpi_inq_varid(ncid, anal_vars[i], &varid);
+			check_io(ret, ncmpi_inq_varid);
 		}
 		
-		for (j = 0; j < total_count; j++) {
-			array[j] = (float)((pd->ens_id - 1 + j) * (pd->world_rank + 1)) * LETKF_WEIGHT;
+		var = &file->vars[varid];
+		if (unlikely(strcmp(var->name, anal_vars[i]))) {
+			int idx;
+			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
+			idx = find_var(file, anal_vars[i]);
+			check_error(idx >= NUM_AXIS_VARS, find_var);
+			
+			var = &file->vars[idx];
+			array->varid = var->varid;
 		}
 
-		ret = ncmpi_iput_vara_float(ncid, var->varid, start, count, array, NULL);
-		check_io(ret, ncmpi_iput_vara_float);
+		if (first_run) {
+			int j;
+			MPI_Offset *s_idx, *e_idx;
+			MPI_Offset total_count = 1;
 
-		var_arrays[i] = array;
-		free(start);
+			ndims = var->ndims;
+			start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 4);
+			check_error(start, malloc);
+			
+			count = start + ndims;
+			s_idx = count + ndims;
+			e_idx = s_idx + ndims;
+
+			for (j = 0; j < ndims; j++) {
+				if (strchr(var->dim_name[j], 'z')) {
+					start[j] = 0;
+					count[j] = KMAX;
+				}
+				else if (strchr(var->dim_name[j], 'y')) {
+					start[j] = pd->proc_rank_y * JMAX(pd) + JHALO;
+					count[j] = JMAX(pd);
+				}
+				else if (strchr(var->dim_name[j], 'x')) {
+					start[j] = pd->proc_rank_x * IMAX(pd) + IHALO;
+					count[j] = IMAX(pd);
+				}
+
+				total_count *= count[j];
+				s_idx[j] = 0;
+				e_idx[j] = count[j];
+			}
+
+			data = (float *)malloc(sizeof(float) * total_count);
+			check_error(data, malloc);
+			memset(data, -1, sizeof(float) * total_count);
+			
+			array->ndims = ndims;
+			array->shape = start;
+			array->idxes = s_idx;
+			array->varid = varid;
+			array->data = data;
+			array->nelems = total_count;
+		}
+		else {
+			start = array->shape;
+			count = start + ndims;
+		}
+
+		ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, LETKF_WEIGHT);
+		check_error(!ret, fill_buffer);
+		
+		ret = ncmpi_iput_vara_float(ncid, var->varid, start, count, data, NULL);
+		check_io(ret, ncmpi_iput_vara_float);
 	}
 
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
@@ -306,14 +383,12 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
-	file->var_write_buffers = var_arrays;
-
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_writetime_end();
-
-	MPI_Barrier(pd->ens_comm);
+	
+	file->var_write_buffers = arrays;
 
 	return ret;
 }
