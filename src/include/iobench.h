@@ -92,6 +92,7 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 MPI_Offset get_databuf_size(PD *pd, int file_idx);
 int fill_buffer(struct data_buf *buf, float c, float a, float w);
 int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight);
+int find_var(struct file_info *file, char *var_name);
 int init_data_buf(struct data_buf **buf, int num);
 
 #endif // _IOBENCH_H_
