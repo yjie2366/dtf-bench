@@ -75,6 +75,7 @@ struct dim_pair hist_dims[NUM_HISTDIMS] = {
 	{ "nv"	, 2,		-1 }
 };
 
+/*
 MPI_Datatype subarray_type[NUM_DATATYPE] = {
 	[0 ... NUM_DATATYPE-1] = MPI_DATATYPE_NULL
 };
@@ -158,6 +159,7 @@ static void init_subarray_types(PD *pd)
 		MPI_Type_commit(type);
 	}
 }
+*/
 
 static void init_fileinfo(PD *pd)
 {
@@ -355,7 +357,24 @@ void init_pd(int argc, char **argv, PD *pd)
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
 	init_fileinfo(pd);
-	init_subarray_types(pd);
+}
+
+static int free_datatype(MPI_Datatype *type)
+{
+	int ret;
+	if (*type != MPI_DATATYPE_NULL) {
+		int combiner, num_a, num_d, num_i;
+		ret = MPI_Type_get_envelope(*type, &num_i, &num_a, &num_d, &combiner);
+		check_mpi(ret, MPI_Type_get_envelope);
+
+		if (combiner != MPI_COMBINER_NAMED) {
+			ret = MPI_Type_free(type);
+			check_mpi(ret, MPI_Type_free);
+		}
+
+		*type = MPI_DATATYPE_NULL;
+	}
+	return 0;
 }
 
 int finalize_pd(PD *pd)
@@ -371,6 +390,7 @@ int finalize_pd(PD *pd)
 				struct data_buf *buf = &file->axes_buffer[j];
 				if (buf->shape) free(buf->shape);
 				if (buf->data) free(buf->data);
+				free_datatype(&buf->dtype);
 			}
 			free(file->axes_buffer);
 		}
@@ -380,6 +400,7 @@ int finalize_pd(PD *pd)
 				struct data_buf *buf = &file->var_write_buffers[j];
 				if (buf->shape) free(buf->shape);
 				if (buf->data) free(buf->data);
+				free_datatype(&buf->dtype);
 			}
 			free(file->var_write_buffers);
 		}
@@ -389,6 +410,7 @@ int finalize_pd(PD *pd)
 				struct data_buf *buf = &file->var_read_buffers[j];
 				if (buf->shape) free(buf->shape);
 				if (buf->data) free(buf->data);
+				free_datatype(&buf->dtype);
 			}
 			free(file->var_read_buffers);
 		}
@@ -404,23 +426,8 @@ int finalize_pd(PD *pd)
 			free(file->vars);
 		}
 	}
-	free(pd->files);
-
-	for (i = 0; i < NUM_DATATYPE; i++) {
-		if (subarray_type[i] != MPI_DATATYPE_NULL) {
-			int ret, combiner, num_a, num_d, num_i;
-			ret = MPI_Type_get_envelope(subarray_type[i], &num_i,
-					&num_a, &num_d, &combiner);
-			check_mpi(ret, MPI_Type_get_envelope);
-
-			if (combiner != MPI_COMBINER_NAMED) {
-				MPI_Type_free(&subarray_type[i]);
-			}
-
-			subarray_type[i] = MPI_DATATYPE_NULL;
-		}
-	}
 	MPI_Comm_free(&pd->ens_comm);
+	free(pd->files);
 
 	return 0;
 }

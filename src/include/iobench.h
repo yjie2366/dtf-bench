@@ -28,7 +28,12 @@ struct data_buf {
 	int varid;
 	// for getting the layout of shape and idxes
 	int ndims;
+	// Including HALO areas
 	int nelems;
+
+	// For SCALE's read_anal()
+	int ntypes;
+	MPI_Datatype dtype;
 	/* shape in PnetCDF file
 	 *
 	 * [0 ... ndims-1] = start
@@ -85,7 +90,8 @@ int create_dirs(char *path);
 void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix, char *name );
 int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int flag, int *ncid);
 MPI_Offset get_databuf_size(PD *pd, int file_idx);
-void reset_seed(float c, float a, int seed);
-float get_float(float c, float w);
+int fill_buffer(struct data_buf *buf, float c, float a, float w);
+int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight);
+int init_data_buf(struct data_buf **buf, int num);
 
 #endif // _IOBENCH_H_

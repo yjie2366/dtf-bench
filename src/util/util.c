@@ -9,15 +9,14 @@ extern struct dim_pair hist_dims[];
 
 static float pseudo_rand = 1.0;
 
-void reset_seed(float c, float a, int seed)
-{ 
-	pseudo_rand = (seed % 1000) * c + a;
+static void reset_seed(float c, float a, int seed)
+{
+	pseudo_rand = (seed % 1000) * (++c) + a;
 }
 
-float get_float(float c, float w)
+static float get_float(float c, float w)
 {
-	pseudo_rand = ((int)pseudo_rand % 1000) * c + w;
-	return pseudo_rand;
+	return (pseudo_rand = (float)((int)pseudo_rand % 1000) * (++c) + w);
 }
 
 int fill_buffer(struct data_buf *buf, float c, float a, float w)
@@ -69,7 +68,7 @@ int fill_buffer(struct data_buf *buf, float c, float a, float w)
 
 		return errno;
 	}
-
+	
 	return 0;	
 }
 
@@ -85,6 +84,9 @@ int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight)
 	MPI_Offset *e_idx = s_idx + ndims;
 	float *data = buf->data;
 	float *expect = NULL;
+	int rank = pd->world_rank;
+
+	MPI_Offset nelems = 1;
 
 	if (unlikely(!buf || !data)) {
 		fprintf(stderr, "[ERROR] Invalid buffer!\n");
@@ -100,17 +102,14 @@ int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight)
 		return errno;
 	}
 	
-	int rank = pd->world_rank;
-	MPI_Offset nelems = IMAX(pd) * JMAX(pd);
-	if (ndims > 2) nelems *= KMAX;
+	for (j = 0; j < buf->ndims; j++)
+		nelems *= (e_idx[j] - s_idx[j]);
 
 	expect = malloc(sizeof(float) * nelems);
 	check_error(expect, malloc);
 
 	reset_seed(rank, cycle, varid);
-	for (j = 0; j < nelems; j++) {
-		expect[j] = get_float(rank, weight);
-	}
+	for (j = 0; j < nelems; j++) expect[j] = get_float(rank, weight);
 
 	if (ndims == 2) {
 		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
@@ -380,5 +379,19 @@ int find_var(struct file_info *file, char *var_name)
 	}
 
 	return idx;
+}
+
+int init_data_buf(struct data_buf **buf, int num)
+{
+	int i;
+	struct data_buf *_buf = malloc(sizeof(struct data_buf) * num);
+	check_error(_buf, malloc);
+	memset(_buf, 0, sizeof(struct data_buf) * num);
+
+	for (i = 0; i < num; i++) _buf[i].dtype = MPI_DATATYPE_NULL;
+
+	*buf = _buf;
+
+	return 0;
 }
 

@@ -24,11 +24,9 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	int num_var = LVARS_HIST;
 	
 	if (!arrays) {
-		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * num_var);
-		check_error(arrays, malloc);
-		memset(arrays, 0, sizeof(struct data_buf) * num_var);
 		file->nvar_read_buf = num_var;
 		first_run = 1;
+		init_data_buf(&arrays, num_var);
 	}
 
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".hist.nc", file_path);
@@ -126,18 +124,6 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	check_io(ret, ncmpi_close);
 
 	if (cycle) dtf_readtime_end();
-	
-//	if (!pd->world_rank) {
-//		int idx;
-//		for (idx = 0; idx < num_var; idx++) {
-//			int j;
-//			fprintf(stderr, "Variable: %s\n", hist_vars[idx]);
-//			for (j = 0; j < arrays[idx].nelems; j++) {
-//				fprintf(stderr, "%f ", arrays[idx].data[j]);
-//			}
-//			fprintf(stderr, "\n");
-//		}
-//	}
 
 	file->var_read_buffers = arrays;
 
@@ -145,8 +131,8 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	for (i = 0; i < num_var; i++) {
 		struct data_buf *read_buf = &file->var_read_buffers[i];
 
-	//	ret = compare_buffer(pd, read_buf, cycle, SCALE_WEIGHT);
-	//	check_error(!ret, compare_buffer);
+		ret = compare_buffer(pd, read_buf, cycle, SCALE_WEIGHT);
+		check_error(!ret, compare_buffer);
 	}
 
 	return ret;
@@ -165,11 +151,9 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
 	if (!arrays) {
-		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * num_var);
-		check_error(arrays, malloc);
-		memset(arrays, 0, sizeof(struct data_buf) * num_var);
 		file->nvar_read_buf = num_var;
 		first_run = 1;
+		init_data_buf(&arrays, num_var);
 	}
 
 	if (cycle) dtf_time_start();
@@ -288,11 +272,9 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_W, &ncid);
 
 	if (!arrays) {
-		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * num_var);
-		check_error(arrays, malloc);
-		memset(arrays, 0, sizeof(struct data_buf) * num_var);
 		file->nvar_write_buf = num_var;
 		first_run = 1;
+		init_data_buf(&arrays, num_var);
 	}
 
 	if (cycle) dtf_time_start();
@@ -341,11 +323,11 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 					count[j] = KMAX;
 				}
 				else if (strchr(var->dim_name[j], 'y')) {
-					start[j] = pd->proc_rank_y * JMAX(pd) + JHALO;
+					start[j] = JS_inG(pd);
 					count[j] = JMAX(pd);
 				}
 				else if (strchr(var->dim_name[j], 'x')) {
-					start[j] = pd->proc_rank_x * IMAX(pd) + IHALO;
+					start[j] = IS_inG(pd);
 					count[j] = IMAX(pd);
 				}
 
@@ -373,7 +355,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 		ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, LETKF_WEIGHT);
 		check_error(!ret, fill_buffer);
 		
-		ret = ncmpi_iput_vara_float(ncid, var->varid, start, count, data, NULL);
+		ret = ncmpi_iput_vara_float(ncid, varid, start, count, data, NULL);
 		check_io(ret, ncmpi_iput_vara_float);
 	}
 

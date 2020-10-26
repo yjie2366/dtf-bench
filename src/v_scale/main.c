@@ -39,11 +39,11 @@ int main(int argc, char **argv)
 	}
 	
 	/* Start Cycling */
-//	for (cycle = 0; cycle < pd->cycles; cycle++) {
+	for (cycle = 0; cycle < pd->cycles; cycle++) {
 		write_hist(pd, data_path, cycle);
-//		write_anal(pd, data_path, cycle);
-//		read_anal(pd, data_path, cycle); 
-//	}
+		write_anal(pd, data_path, cycle);
+		read_anal(pd, data_path, cycle); 
+	}
 
 	finalize_pd(pd);
 	free(pd);

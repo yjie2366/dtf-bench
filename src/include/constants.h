@@ -42,9 +42,9 @@
 #define IAG(pd) (IMAXG(pd) + IHALO * 2)
 #define JAG(pd) (JMAXG(pd) + JHALO * 2)
 
-#define KA	KMAX + KHALO * 2
-#define IA(pd) (IMAX(pd) + IHALO * 2)
-#define JA(pd) (JMAX(pd) + JHALO * 2)
+#define KA	(KMAX + KHALO * 2)
+#define IA(pd)  (IMAX(pd) + IHALO * 2)
+#define JA(pd)  (JMAX(pd) + JHALO * 2)
 
 #define KS	KHALO
 #define KE	(KMAX + KHALO - 1)

@@ -4,8 +4,6 @@
 #include <fcntl.h>
 #include <time.h>
 
-extern MPI_Datatype subarray_type[];
-
 /* write axes and associated coord vars */
 static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 {
@@ -18,10 +16,8 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 	
 	if (!arrays) {
 		file->naxes_buf = num_axis + num_coords;
-		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * file->naxes_buf);
-		check_error(arrays, malloc);
-		memset(arrays, 0, sizeof(struct data_buf) * file->naxes_buf);
 		first_run = 1;
+		init_data_buf(&arrays, file->naxes_buf);
 	}
 
 	/* Write to AXIS variables */
@@ -258,12 +254,9 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 	struct data_buf *arrays = file->var_write_buffers;
 
 	if (!arrays) {
-		arrays = (struct data_buf *)malloc(sizeof(struct data_buf) * file->ndata_vars);
-		check_error(arrays, malloc);
-		memset(arrays, 0, sizeof(float *) * file->ndata_vars);
-
 		file->nvar_write_buf = file->ndata_vars;
 		first_run = 1;
+		init_data_buf(&arrays, file->nvar_write_buf);
 	}
 
 	/* Write to data variables */
@@ -303,6 +296,8 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 					count[j] = file->dims[var->dims[j]].length;
 					s_idx[j] = 0;
 					e_idx[j] = count[j];
+					if (strchr(var->dim_name[j], 'h'))
+						e_idx[j] -= 1;
 				}
 				else if (strchr(var->dim_name[j], 'y')) {
 					if (file_idx == ANAL) {
@@ -353,27 +348,15 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 		ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, SCALE_WEIGHT);
 		check_error(!ret, fill_buffer);
 
-		if (!pd->world_rank) {
-			int idx;
-			for (idx = 0; idx < num_var; idx++) {
-				int j;
-				fprintf(stderr, "Variable: %s\n", hist_vars[idx]);
-				for (j = 0; j < arrays[idx].nelems; j++) {
-					fprintf(stderr, "%f ", arrays[idx].data[j]);
-				}
-				fprintf(stderr, "\n");
-			}
-		}
-
-		ret = ncmpi_bput_vara_float(ncid, var->varid, start, count, data, NULL);
+		ret = ncmpi_bput_vara_float(ncid, varid, start, count, data, NULL);
 		check_io(ret, ncmpi_bput_vara_float);
 	}
-
+	
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 	
 	file->var_write_buffers = arrays;
-
+	
 	return 0;
 }
 
@@ -513,16 +496,15 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	int first_run = 0;
 	int i, ret, ncid = -1;
 	char file_path[MAX_PATH_LEN] = { 0 };
+	int num_vars = VARS_ANAL_READ;
+
 	struct file_info *file = &pd->files[ANAL];
 	struct data_buf *arrays = file->var_read_buffers;
 
 	if (!arrays) {
-		arrays = malloc(sizeof(struct data_buf) * VARS_ANAL_READ);
-		check_error(arrays, malloc);
-		memset(arrays, 0, sizeof(struct data_buf) * VARS_ANAL_READ);
-		
-		file->nvar_read_buf = VARS_ANAL_READ;
+		file->nvar_read_buf = num_vars;
 		first_run = 1;
+		init_data_buf(&arrays, file->nvar_read_buf);
 	}
 
 	// Generate file path
@@ -531,15 +513,15 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 
 	if (cycle) dtf_time_start();
 
-	for (i = 0; i < VARS_ANAL_READ; i++) {
+	for (i = 0; i < num_vars; i++) {
 		struct var_pair *var = NULL;
 		struct data_buf *array = &arrays[i];
 		float *data = array->data;
 		int ndims = array->ndims, varid = array->varid;
 
-		MPI_Offset ntypes = 0;
-		MPI_Datatype dtype = MPI_DATATYPE_NULL;
-		MPI_Offset *start, *count;
+		MPI_Offset ntypes = array->ntypes;
+		MPI_Datatype dtype = array->dtype;
+		MPI_Offset *start, *count, *f_count;
 
 		if (first_run) {
 			ret = ncmpi_inq_varid(ncid, anal_vars[i], &varid);
@@ -566,13 +548,17 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 
 			ndims = var->ndims;
 
-			start = malloc(sizeof(MPI_Offset) * ndims * 4);
+			/* Only in this case, the layout of shape region is:
+			 * |-start-|-buffer-count-|-start-idx-|-end-idx-|-file-count-|
+			 */
+			start = malloc(sizeof(MPI_Offset) * ndims * 5);
 			check_error(start, malloc);
-			memset(start, 0, sizeof(MPI_Offset) * ndims * 4);
+			memset(start, 0, sizeof(MPI_Offset) * ndims * 5);
 
 			count = start + ndims;
 			s_idx = count + ndims;
 			e_idx = s_idx + ndims;
+			f_count = e_idx + ndims;
 
 			if (ndims == 2) {
 				start[0] = JS_inG(pd) - JHALO;
@@ -580,31 +566,68 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 
 				count[0] = JA(pd);
 				count[1] = IA(pd);
+				
+				f_count[0] = JA(pd);
+				f_count[1] = IA(pd);
 
 				s_idx[0] = JHALO;
 				s_idx[1] = IHALO;
 
 				e_idx[0] = s_idx[0] + JMAX(pd);
-				e_idx[1] = s_idx[1] - IMAX(pd);
+				e_idx[1] = s_idx[1] + IMAX(pd);
 
 				total_count = IA(pd) * JA(pd);
+				dtype = MPI_FLOAT;
+				ntypes = IA(pd) * JA(pd);
 			}
 			else {
+				int size[3] = { 0 };
+				int sub_size[3] = { 0 };
+				int sub_off[3] = { 0 };
+
 				start[0] = JS_inG(pd);
 				start[1] = IS_inG(pd);
 				start[2] = 0;
 
-				count[0] = JMAX(pd);
-				count[1] = IMAX(pd);
-				count[2] = KMAX;
+				count[0] = JA(pd);
+				count[1] = IA(pd);
+				count[2] = KA;
+
+				f_count[0] = JMAX(pd);
+				f_count[1] = IMAX(pd);
+				f_count[2] = KMAX;
 
 				s_idx[0] = JHALO;
 				s_idx[1] = IHALO;
 				s_idx[2] = KHALO;
 
-				e_idx[0] = s_idx[0] + count[0];
-				e_idx[1] = s_idx[1] + count[1];
-				e_idx[2] = s_idx[2] + count[2];
+				e_idx[0] = s_idx[0] + f_count[0];
+				e_idx[1] = s_idx[1] + f_count[1];
+				e_idx[2] = s_idx[2] + f_count[2];
+
+				size[0] = JA(pd);
+				size[1] = IA(pd);
+				size[2] = KA;
+
+				sub_size[0] = JMAX(pd);
+				sub_size[1] = IMAX(pd);
+				sub_size[2] = KMAX;
+
+				sub_off[0] = JHALO;
+				sub_off[1] = IHALO;
+				sub_off[2] = KHALO;
+
+				if (!strcmp(var->dim_name[2], "zh")) {
+					s_idx[2] -= 1;
+					e_idx[2] -= 1;
+					sub_off[2] -= 1;
+				}
+
+				ntypes = 1;
+
+				MPI_Type_create_subarray(ndims, size, sub_size,
+						sub_off, MPI_ORDER_C, MPI_FLOAT, &dtype);
+				MPI_Type_commit(&dtype);
 
 				total_count = IA(pd) * JA(pd) * KA;
 			}
@@ -619,25 +642,15 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 			array->varid = varid;
 			array->data = data;
 			array->nelems = total_count;
+			array->dtype = dtype;
+			array->ntypes = ntypes;
 		}
 		else {
 			start = array->shape;
-			count = start + ndims;
+			f_count = start + ndims * 4;
 		}
 
-		if (ndims == 2) {
-			dtype = subarray_type[XY];
-			ntypes = IA(pd) * JA(pd);
-		}
-		else {
-			dtype = (strcmp(var->dim_name[2], "zh")) ? 
-				subarray_type[ZXY2] :
-				subarray_type[ZHXY2];
-			ntypes = 1;
-		}
-
-		ret = ncmpi_iget_vara(ncid, varid, start, count, data,
-				ntypes, dtype, NULL);
+		ret = ncmpi_iget_vara(ncid, varid, start, f_count, data, ntypes, dtype, NULL);
 		check_io(ret, ncmpi_iget_vara);
 	}
 
@@ -655,7 +668,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	file->var_read_buffers = arrays;
 
 	// Check validity of read values
-	for (i = 0; i < VARS_ANAL_READ; i++) {
+	for (i = 0; i < num_vars; i++) {
 		struct data_buf *read_buf = &file->var_read_buffers[i];
 		
 		ret = compare_buffer(pd, read_buf, cycle, LETKF_WEIGHT);
