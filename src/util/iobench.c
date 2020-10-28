@@ -357,6 +357,16 @@ void init_pd(int argc, char **argv, PD *pd)
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
 	init_fileinfo(pd);
+
+	// include the cycle 0, which needs to initialize data structs
+	struct timing *t = &pd->time;
+	t->cycle_time = (double *) malloc(sizeof(double) * pd->cycles * 3);
+	check_error(t->cycle_time, malloc);
+	memset(t->cycle_time, 0, sizeof(double) * pd->cycles * 3);
+
+	t->cycle_rtime = t->cycle_time + pd->cycles;
+	t->cycle_wtime = t->cycle_rtime + pd->cycles;
+	t->checkpoint = 0.0;
 }
 
 static int free_datatype(MPI_Datatype *type)
@@ -426,8 +436,100 @@ int finalize_pd(PD *pd)
 			free(file->vars);
 		}
 	}
+
+	if (pd->time.cycle_time) free(pd->time.cycle_time);
 	MPI_Comm_free(&pd->ens_comm);
 	free(pd->files);
 
 	return 0;
+}
+
+static double stand_devi(double myval, double sum, int nranks)
+{
+	int err;
+	double tmpsum=0;
+	double mean = sum/(double)nranks;
+	double tmp = (myval - mean)*(myval - mean);
+
+	if(myval == 0) tmp = 0;
+
+	err = MPI_Reduce(&tmp, &tmpsum, 1, MPI_DOUBLE, MPI_SUM,0, MPI_COMM_WORLD);
+	check_mpi(err, MPI_Reduce);
+
+	return sqrt(tmpsum/(double)nranks);
+}
+
+void output_stat(PD *pd, char *comp_name)
+{
+	struct timing *time = &pd->time;
+	int i, ret; int num_cycles = pd->cycles;
+	double *cycle_time = NULL;
+	double *cycle_rtime = NULL;
+	double *cycle_wtime = NULL;
+	double *std_devi = NULL, *std_devi_r, *std_devi_w;
+
+	/* allocate buffers for cycle time data */
+	cycle_time = (double *)malloc(sizeof(double) * num_cycles * 3);
+	check_error(cycle_time, malloc);
+	memset(cycle_time, 0, sizeof(double) * num_cycles * 3);
+	cycle_rtime = cycle_time + num_cycles;
+	cycle_wtime = cycle_rtime + num_cycles;
+
+	std_devi = (double *)malloc(sizeof(double) * num_cycles * 3);
+	check_error(cycle_time, malloc);
+	memset(std_devi, 0, sizeof(double) * num_cycles * 3);
+	std_devi_r = std_devi + num_cycles;
+	std_devi_w = std_devi_r + num_cycles;
+
+	/* get sum of cycle time of all the processes
+	 * (for calculating std devi and avg)
+	 */
+	ret = MPI_Allreduce(time->cycle_time, cycle_time, num_cycles,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	check_mpi(ret, MPI_Allreduce);
+
+	ret = MPI_Allreduce(time->cycle_rtime, cycle_rtime, num_cycles,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	check_mpi(ret, MPI_Allreduce);
+
+	ret = MPI_Allreduce(time->cycle_wtime, cycle_wtime, num_cycles,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	check_mpi(ret, MPI_Allreduce);
+
+	for (i = 0; i < num_cycles; i++) {
+		std_devi[i] = stand_devi(time->cycle_time[i], cycle_time[i], pd->world_size);
+		std_devi_r[i] = stand_devi(time->cycle_rtime[i], cycle_rtime[i], pd->world_size);
+		std_devi_w[i] = stand_devi(time->cycle_wtime[i], cycle_wtime[i], pd->world_size);
+	}
+
+	if (!pd->world_rank) {
+		double t_ct = 0.0, t_rct = 0.0, t_wct = 0.0;
+
+		for (i = 0; i < num_cycles; i++) {
+
+			cycle_time[i]  /= (double)pd->world_size;
+			cycle_rtime[i] /= (double)pd->world_size;
+			cycle_wtime[i] /= (double)pd->world_size;
+		
+			fprintf(stderr, "[%s] Cycle[%d]: Rd time: %.4f(%.4f)"
+					" Wr time: %.4f(%.4f) Total: %.4f(%.4f)\n",
+					comp_name, i, cycle_rtime[i], std_devi_r[i],
+					cycle_wtime[i], std_devi_w[i],
+					cycle_time[i], std_devi[i]);
+
+			/* ignore the initial cycle */
+			if (i) {
+				t_ct += cycle_time[i];
+				t_rct += cycle_rtime[i];
+				t_wct += cycle_wtime[i];
+			}
+		}
+		fprintf(stderr, "[%s] AVG Rd time: %.4f Wr time: %.4f Total: %.4f\n",
+				comp_name, t_rct / (double)(pd->cycles - 1),
+				t_wct / (double)(pd->cycles - 1),
+				t_ct / (double)(pd->cycles - 1));
+	}
+
+	if (cycle_time) free(cycle_time);
+	if (std_devi) free(std_devi);
 }

@@ -54,7 +54,7 @@ done
 if [ -z "$np" ]; then np=4; fi
 if [ -z "$imax" ]; then imax=80; fi
 if [ -z "$jmax" ]; then jmax=80; fi
-if [ -z "$cycles" ]; then cycles=4; fi
+if [ -z "$cycles" ]; then cycles=11; fi
 if [ -z "$member" ]; then member=2; fi
 if [ -z "$master" ]; then master=2; fi
 if [ -z "$num_run" ]; then num_run=1; fi
@@ -74,7 +74,8 @@ workgroup_size=$((SCALE_NP/master))
 echo "Every ${workgroup_size} procs handled by a master process"
 echo "Benchmark will run ${num_run} time(s)..."
 
-export DTF_VERBOSE_LEVEL=2
+# only report error messages by default
+export DTF_VERBOSE_LEVEL=0
 export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
@@ -91,7 +92,6 @@ for run in `seq 1 ${num_run}`; do
 
 	output_log="${runlog_dir}/output-${run}.log"
 	error_log="${runlog_dir}/error-${run}.log"
-	per_proc_log="${log_dir}/d-${np}.${PJM_JOBID}.*.${run}.*"
 
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
@@ -103,11 +103,9 @@ for run in `seq 1 ${num_run}`; do
 	fi
 
 	if [ "$?" -ne 0 ]; then
-		mv ${per_proc_log} ${runlog_dir}
 		echo "Error occurred. Please check ${error_log}!"
 		break
 	else
-		mv ${per_proc_log} ${runlog_dir}
 		echo "Execution succeeded!"
 	fi
 done

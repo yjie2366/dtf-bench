@@ -418,7 +418,7 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 	
-	if (cycle) dtf_time_start();
+	cycle_time_start(pd);
 
 	write_axis_vars(pd, HIST, cycle, ncid);
 	write_time_var(pd, ncid, cycle);
@@ -432,8 +432,8 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
-	
-	if (cycle) dtf_writetime_end();
+
+	cycle_wtime_end(pd, cycle);	
 
 	return ret;
 }
@@ -465,7 +465,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 
-	if (cycle) dtf_time_start();
+	cycle_time_start(pd);
 
 	write_axis_vars(pd, ANAL, cycle, ncid);
 	write_data_vars(pd, ANAL, ncid, cycle);
@@ -479,7 +479,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	if (cycle) dtf_writetime_end();
+	cycle_wtime_end(pd, cycle);
 
 	return 0;
 }
@@ -511,7 +511,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".anal.nc", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
-	if (cycle) dtf_time_start();
+	cycle_time_start(pd);
 
 	for (i = 0; i < num_vars; i++) {
 		struct var_pair *var = NULL;
@@ -529,7 +529,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		}
 		
 		var = &file->vars[varid];
-		if (unlikely(strcmp(var->name, anal_vars[i]))) {
+		if (strcmp(var->name, anal_vars[i])) {
 			int idx;
 			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
 			idx = find_var(file, anal_vars[i]);
@@ -663,8 +663,8 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	if (cycle) dtf_readtime_end();
-	
+	cycle_rtime_end(pd, cycle);
+
 	file->var_read_buffers = arrays;
 
 	// Check validity of read values

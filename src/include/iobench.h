@@ -66,10 +66,18 @@ struct file_info {
 	struct var_pair *vars;
 };
 
+struct timing {
+	double checkpoint;
+	double read_time;
+	double *cycle_time;
+	double *cycle_rtime;
+	double *cycle_wtime;
+};
+
 typedef struct proc_data {
 	struct file_info *files;
 	MPI_Offset imax;     	/* Size of data for the process at coord x without HALO*/
-	MPI_Offset jmax;	/* Size of data for the process at coord y without HALO*/	
+	MPI_Offset jmax;	/* Size of data for the process at coord y without HALO*/
 	MPI_Offset kmax;	/* Size of data for the process at coord z without HALO*/
 	int num_ens;  		/* Number of ensembles */
 	int cycles;
@@ -84,6 +92,7 @@ typedef struct proc_data {
 	int proc_rank_x;
 	int proc_rank_y;
 	MPI_Comm ens_comm;
+	struct timing time;
 } PD;
 
 int create_dirs(char *path);
@@ -94,5 +103,9 @@ int fill_buffer(struct data_buf *buf, float c, float a, float w);
 int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight);
 int find_var(struct file_info *file, char *var_name);
 int init_data_buf(struct data_buf **buf, int num);
+void cycle_time_start(PD *pd);
+void cycle_time_end(PD *pd, int cycle);
+void cycle_rtime_end(PD *pd, int cycle);
+void cycle_wtime_end(PD *pd, int cycle);
 
 #endif // _IOBENCH_H_

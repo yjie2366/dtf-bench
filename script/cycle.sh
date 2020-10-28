@@ -3,6 +3,7 @@ log_dir=${script_dir}/../log
 target="fugaku"
 args=()
 group=($(id -nG))
+master=
 
 if [ ! -e ${log_dir} ]; then
 	mkdir -p ${log_dir} || exit 1
@@ -27,6 +28,7 @@ while getopts "n:i:j:c:m:o:a:u:" OPT; do
 		args+=("-member ${OPTARG}")
 		;;
 	a)
+		master=${OPTARG}
 		args+=("-master ${OPTARG}")
 		;;
 	u)
@@ -46,8 +48,12 @@ while getopts "n:i:j:c:m:o:a:u:" OPT; do
 	esac
 done
 
-if [ -z ${nprocs} ]; then
+if [ -z "${nprocs}" ]; then
 	nprocs=4
+fi
+
+if [ -z "${master}" ]; then 
+	master=2
 fi
 
 if [ "${target}" = "ofp" ]; then
@@ -76,11 +82,17 @@ cat <<- EOF > ${batch_script}
 #PJM --spath ${log_dir}/%n.%j.stat
 #PJM -o ${log_dir}/%n.%j.out
 #PJM -e ${log_dir}/%n.%j.err
-#PJM --mpi "proc=$((nprocs * 2))"
+#	PJM --mpi "proc=$((nprocs * 2))"
 #PJM --mpi "max-proc-per-node=1"
 
 sh ${script_dir}/exec.sh ${args[@]}
 
 EOF
 
-pjsub ${batch_script}
+ret=$(pjsub ${batch_script})
+jobid=`echo $ret | grep -i "submitted" | awk '{print $6}'`
+runlog_dir="${log_dir}/run-${nprocs}-${master}"
+
+pjwait ${jobid}
+find ${log_dir} -maxdepth 1 -name "d-${nprocs}.${jobid}.*" -exec mv {} ${runlog_dir} \;
+

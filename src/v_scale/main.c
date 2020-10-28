@@ -7,6 +7,8 @@ int write_hist(PD *pd, char *dir_path, int cycle);
 int write_anal(PD *pd, char *dir_path, int cycle);
 int read_anal(PD *pd, char *dir_path, int cycle);
 
+char *comp_name = "v_scale";
+
 int main(int argc, char **argv)
 {
 	int cycle = 0, ret;
@@ -17,7 +19,7 @@ int main(int argc, char **argv)
 
 	/* INITIALIZATION */
 	MPI_Init(&argc, &argv);
-	ret = dtf_init(DTF_INIT_FILE, "v_scale");
+	ret = dtf_init(DTF_INIT_FILE, comp_name);
 	check_error(!ret, dtf_init);
 
 	pd = malloc(sizeof(struct proc_data));
@@ -44,6 +46,9 @@ int main(int argc, char **argv)
 		write_anal(pd, data_path, cycle);
 		read_anal(pd, data_path, cycle); 
 	}
+
+	output_stat(pd, comp_name);
+	MPI_Barrier(MPI_COMM_WORLD);
 
 	finalize_pd(pd);
 	free(pd);

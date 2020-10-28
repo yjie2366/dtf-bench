@@ -88,14 +88,14 @@ int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight)
 
 	MPI_Offset nelems = 1;
 
-	if (unlikely(!buf || !data)) {
+	if (!buf || !data) {
 		fprintf(stderr, "[ERROR] Invalid buffer!\n");
 		errno = EINVAL;
 
 		return errno;
 	}
 
-	if (unlikely((ndims > 4) || (ndims < 2))) {
+	if ((ndims > 4) || (ndims < 2)) {
 		fprintf(stderr, "[ERROR] Comparing %d-D array unsupported\n", ndims);
 		errno = EINVAL;
 
@@ -395,3 +395,67 @@ int init_data_buf(struct data_buf **buf, int num)
 	return 0;
 }
 
+void cycle_time_start(PD *pd)
+{
+	if (!pd) {
+		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
+		return;
+	}
+	pd->time.checkpoint = MPI_Wtime();
+}
+
+void cycle_time_end(PD *pd, int cycle)
+{
+	double t = MPI_Wtime();
+	double dur = t - pd->time.checkpoint;
+
+	if (!pd) {
+		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
+		return;
+	}
+	if (cycle < 0) {
+		fprintf(stderr, "[ERROR] Illegal cycle ID\n");
+		return;
+	}
+	
+	pd->time.cycle_time[cycle] += dur;
+	pd->time.checkpoint = t;
+}
+
+void cycle_rtime_end(PD *pd, int cycle)
+{
+	double t = MPI_Wtime();
+	double dur = t - pd->time.checkpoint;
+
+	if (!pd) {
+		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
+		return;
+	}
+	if (cycle < 0) {
+		fprintf(stderr, "[ERROR] %s: Illegal cycle ID\n", __func__);
+		return;
+	}
+	
+	pd->time.cycle_rtime[cycle] += dur;
+	pd->time.cycle_time[cycle] += dur;
+	pd->time.checkpoint = t;
+}
+
+void cycle_wtime_end(PD *pd, int cycle)
+{
+	double t = MPI_Wtime();
+	double dur = t - pd->time.checkpoint;
+
+	if (!pd) {
+		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
+		return;
+	}
+	if (cycle < 0) {
+		fprintf(stderr, "[ERROR] %s: Illegal cycle ID\n", __func__);
+		return;
+	}
+	
+	pd->time.cycle_wtime[cycle] += dur;
+	pd->time.cycle_time[cycle] += dur;
+	pd->time.checkpoint = t;
+}

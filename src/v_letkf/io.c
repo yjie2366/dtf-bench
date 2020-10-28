@@ -32,7 +32,7 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".hist.nc", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
-	if (cycle) dtf_time_start();
+	cycle_time_start(pd);
 
 	for (i = 0; i < num_var; i++) {
 		struct data_buf *array = &arrays[i];
@@ -47,7 +47,7 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 		}
 
 		var = &file->vars[varid];
-		if (unlikely(strcmp(var->name, hist_vars[i]))) {
+		if (strcmp(var->name, hist_vars[i])) {
 			int idx;
 			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", hist_vars[i]);
 			idx = find_var(file, hist_vars[i]);
@@ -123,7 +123,7 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	if (cycle) dtf_readtime_end();
+	cycle_rtime_end(pd, cycle);
 
 	file->var_read_buffers = arrays;
 
@@ -156,7 +156,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		init_data_buf(&arrays, num_var);
 	}
 
-	if (cycle) dtf_time_start();
+	cycle_time_start(pd);
 
 	for (i = 0; i < num_var; i++) {
 		int j;
@@ -174,7 +174,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		}
 
 		var = &file->vars[varid];
-		if (unlikely(strcmp(var->name, anal_vars[i]))) {
+		if (strcmp(var->name, anal_vars[i])) {
 			int idx;
 			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
 			idx = find_var(file, anal_vars[i]);
@@ -244,7 +244,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	if (cycle) dtf_readtime_end();
+	cycle_rtime_end(pd, cycle);
 	
 	file->var_read_buffers = arrays;
 
@@ -277,7 +277,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 		init_data_buf(&arrays, num_var);
 	}
 
-	if (cycle) dtf_time_start();
+	cycle_time_start(pd);
 
 	for (i = 0; i < num_var; i++) {
 		struct var_pair *var = NULL;
@@ -294,7 +294,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 		}
 		
 		var = &file->vars[varid];
-		if (unlikely(strcmp(var->name, anal_vars[i]))) {
+		if (strcmp(var->name, anal_vars[i])) {
 			int idx;
 			fprintf(stderr, "[WARNING]: Unmatched var %s ID and idx\n", anal_vars[i]);
 			idx = find_var(file, anal_vars[i]);
@@ -368,7 +368,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
-	if (cycle) dtf_writetime_end();
+	cycle_wtime_end(pd, cycle);
 	
 	file->var_write_buffers = arrays;
 
