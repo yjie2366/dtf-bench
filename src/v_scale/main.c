@@ -22,7 +22,7 @@ int main(int argc, char **argv)
 	ret = dtf_init(DTF_INIT_FILE, comp_name);
 	check_error(!ret, dtf_init);
 
-	pd = malloc(sizeof(struct proc_data));
+	pd = (struct proc_data *)malloc(sizeof(struct proc_data));
 	check_error(pd, malloc);
 
 	init_pd(argc, argv, pd);
@@ -48,7 +48,6 @@ int main(int argc, char **argv)
 	}
 
 	output_stat(pd, comp_name);
-	MPI_Barrier(MPI_COMM_WORLD);
 
 	finalize_pd(pd);
 	free(pd);
@@ -59,7 +58,6 @@ int main(int argc, char **argv)
 	MPI_Finalize();
 
 	return 0;
-
 }
 
 

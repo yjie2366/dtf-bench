@@ -105,7 +105,7 @@ int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight)
 	for (j = 0; j < buf->ndims; j++)
 		nelems *= (e_idx[j] - s_idx[j]);
 
-	expect = malloc(sizeof(float) * nelems);
+	expect = (float *)malloc(sizeof(float) * nelems);
 	check_error(expect, malloc);
 
 	reset_seed(rank, cycle, varid);
@@ -384,7 +384,7 @@ int find_var(struct file_info *file, char *var_name)
 int init_data_buf(struct data_buf **buf, int num)
 {
 	int i;
-	struct data_buf *_buf = malloc(sizeof(struct data_buf) * num);
+	struct data_buf *_buf = (struct data_buf *)malloc(sizeof(struct data_buf) * num);
 	check_error(_buf, malloc);
 	memset(_buf, 0, sizeof(struct data_buf) * num);
 

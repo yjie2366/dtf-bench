@@ -85,25 +85,16 @@ bin_scale="${top_dir}/bin/scale"
 bin_letkf="${top_dir}/bin/letkf"
 
 for run in `seq 1 ${num_run}`; do
-	runlog_dir="${log_dir}/run-${np}-${master}"
-	if [ ! -e "${runlog_dir}" ]; then
-		mkdir -p ${runlog_dir}
-	fi
-
-	output_log="${runlog_dir}/output-${run}.log"
-	error_log="${runlog_dir}/error-${run}.log"
-
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
-		mpiexec -n ${np} ${bin_scale} ${bin_opts} : -n ${np} ${bin_letkf} ${bin_opts} \
-			> ${output_log} 2> ${error_log}
+		mpiexec -n ${np} ${bin_scale} ${bin_opts} : -n ${np} ${bin_letkf} ${bin_opts}
 	else
-		mpiexec -n ${np} ${bin_scale} ${bin_opts} > ${output_log} 2> ${error_log} &
-		mpiexec	-n ${np} ${bin_letkf} ${bin_opts} > ${output_log} 2> ${error_log}
+		mpiexec -n ${np} ${bin_scale} ${bin_opts} &
+		mpiexec	-n ${np} ${bin_letkf} ${bin_opts}
 	fi
 
 	if [ "$?" -ne 0 ]; then
-		echo "Error occurred. Please check ${error_log}!"
+		echo "Error occurred. Please check error log!"
 		break
 	else
 		echo "Execution succeeded!"

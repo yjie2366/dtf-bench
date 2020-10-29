@@ -57,6 +57,7 @@ if [ -z "${master}" ]; then
 fi
 
 if [ "${target}" = "ofp" ]; then
+#	rsc="debug-cache"
 	rsc="regular-cache"
 elif [ "${target}" = "fugaku" ]; then
 	rsc="eap-small"
@@ -76,7 +77,7 @@ cat <<- EOF > ${batch_script}
 #PJM -N "d-${nprocs}"
 #PJM -L "node=$((nprocs * 2))"
 #PJM -L "rscgrp=${rsc}"
-#PJM -L "elapse=00:60:00"
+#PJM -L "elapse=00:30:00"
 #PJM -g ${group[-1]}
 #PJM -S
 #PJM --spath ${log_dir}/%n.%j.stat
@@ -91,10 +92,15 @@ EOF
 
 ret=$(pjsub ${batch_script})
 jobid=`echo $ret | grep -i "submitted" | awk '{print $6}'`
-runlog_dir="${log_dir}/run-${nprocs}-${master}"
 
 echo "JOB ${jobid} submitted."
 
 pjwait ${jobid}
+
+runlog_dir="${log_dir}/run-${nprocs}-${master}"
+if [ ! -d "runlog_dir" ]; then
+	mkdir -p ${runlog_dir}
+fi
+
 find ${log_dir} -maxdepth 1 -name "d-${nprocs}.${jobid}.*" -exec mv {} ${runlog_dir} \;
 

@@ -358,7 +358,11 @@ void init_pd(int argc, char **argv, PD *pd)
 
 	init_fileinfo(pd);
 
-	// include the cycle 0, which needs to initialize data structs
+	/*
+	 Include the cycle 0, which needs to initialize data structs
+	 allocate memory for three regions, which are for time of RW
+	 time of R and time of W
+	*/
 	struct timing *t = &pd->time;
 	t->cycle_time = (double *) malloc(sizeof(double) * pd->cycles * 3);
 	check_error(t->cycle_time, malloc);
@@ -463,9 +467,7 @@ void output_stat(PD *pd, char *comp_name)
 {
 	struct timing *time = &pd->time;
 	int i, ret; int num_cycles = pd->cycles;
-	double *cycle_time = NULL;
-	double *cycle_rtime = NULL;
-	double *cycle_wtime = NULL;
+	double *cycle_time = NULL, *cycle_rtime, *cycle_wtime;
 	double *std_devi = NULL, *std_devi_r, *std_devi_w;
 
 	/* allocate buffers for cycle time data */

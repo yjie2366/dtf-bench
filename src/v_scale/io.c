@@ -418,22 +418,23 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 	
-	cycle_time_start(pd);
 
 	write_axis_vars(pd, HIST, cycle, ncid);
 	write_time_var(pd, ncid, cycle);
 	write_data_vars(pd, HIST, ncid, cycle);
 
+	cycle_time_start(pd);
+
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
+
+	cycle_wtime_end(pd, cycle);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
-
-	cycle_wtime_end(pd, cycle);	
 
 	return ret;
 }
@@ -465,21 +466,21 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 
-	cycle_time_start(pd);
-
 	write_axis_vars(pd, ANAL, cycle, ncid);
 	write_data_vars(pd, ANAL, ncid, cycle);
+
+	cycle_time_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 	
+	cycle_wtime_end(pd, cycle);
+
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
-
-	cycle_wtime_end(pd, cycle);
 
 	return 0;
 }
@@ -510,8 +511,6 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	// Generate file path
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".anal.nc", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
-
-	cycle_time_start(pd);
 
 	for (i = 0; i < num_vars; i++) {
 		struct var_pair *var = NULL;
@@ -551,7 +550,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 			/* Only in this case, the layout of shape region is:
 			 * |-start-|-buffer-count-|-start-idx-|-end-idx-|-file-count-|
 			 */
-			start = malloc(sizeof(MPI_Offset) * ndims * 5);
+			start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 5);
 			check_error(start, malloc);
 			memset(start, 0, sizeof(MPI_Offset) * ndims * 5);
 
@@ -632,7 +631,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 				total_count = IA(pd) * JA(pd) * KA;
 			}
 
-			data = malloc(sizeof(float) * total_count);
+			data = (float *)malloc(sizeof(float) * total_count);
 			check_error(data, malloc);
 			memset(data, -1, sizeof(float) * total_count);
 
@@ -657,13 +656,15 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 
+	cycle_time_start(pd);
+
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
+	cycle_rtime_end(pd, cycle);
+
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
-
-	cycle_rtime_end(pd, cycle);
 
 	file->var_read_buffers = arrays;
 
