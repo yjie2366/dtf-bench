@@ -93,6 +93,8 @@ ret=$(pjsub ${batch_script})
 jobid=`echo $ret | grep -i "submitted" | awk '{print $6}'`
 runlog_dir="${log_dir}/run-${nprocs}-${master}"
 
+echo "JOB ${jobid} submitted."
+
 pjwait ${jobid}
 find ${log_dir} -maxdepth 1 -name "d-${nprocs}.${jobid}.*" -exec mv {} ${runlog_dir} \;
 
