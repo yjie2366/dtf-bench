@@ -54,6 +54,14 @@
 	for (; *tmp != '\0'; tmp++) *tmp = tolower(*tmp);		\
 	str;})
 
+
+static inline int upper(double d)
+{
+	int i_d = (int)d;
+	if (fabs(d-(double)i_d) < 0.000000001f) return i_d;
+	else return i_d + 1;
+}
+
 void init_pd(int argc, char **argv, PD *pd);
 int finalize_pd(PD *pd);
 void output_stat(PD *pd, char *comp_name);

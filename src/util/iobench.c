@@ -347,7 +347,7 @@ void init_pd(int argc, char **argv, PD *pd)
 	MPI_Comm_rank(pd->ens_comm, &pd->ens_rank);
 	MPI_Comm_size(pd->ens_comm, &pd->ens_size);
 	
-	part1 = (int)sqrt(pd->ens_size);
+	part1 = upper(sqrt(pd->ens_size));
 	while (pd->ens_size % part1) part1++;
 	part2 = pd->ens_size / part1;
 

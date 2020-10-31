@@ -47,7 +47,6 @@ int main(int argc, char **argv)
 	}
 
 	output_stat(pd, comp_name);
-
 	finalize_pd(pd);
 	free(pd);
 
