@@ -364,13 +364,17 @@ void init_pd(int argc, char **argv, PD *pd)
 	 time of R and time of W
 	*/
 	struct timing *t = &pd->time;
-	t->cycle_time = (double *) malloc(sizeof(double) * pd->cycles * 3);
-	check_error(t->cycle_time, malloc);
-	memset(t->cycle_time, 0, sizeof(double) * pd->cycles * 3);
+	t->cycle_transfer_time = (double *) malloc(sizeof(double) * pd->cycles * 6);
+	check_error(t->cycle_transfer_time, malloc);
+	memset(t->cycle_transfer_time, 0, sizeof(double) * pd->cycles * 6);
 
-	t->cycle_rtime = t->cycle_time + pd->cycles;
-	t->cycle_wtime = t->cycle_rtime + pd->cycles;
-	t->checkpoint = 0.0;
+	t->cycle_transfer_rtime = t->cycle_transfer_time + pd->cycles;
+	t->cycle_transfer_wtime = t->cycle_transfer_rtime + pd->cycles;
+	t->cycle_file_time = t->cycle_transfer_wtime + pd->cycles;
+	t->cycle_file_rtime = t->cycle_file_time + pd->cycles;
+	t->cycle_file_wtime = t->cycle_file_rtime + pd->cycles;
+	t->trans_checkpoint = 0.0;
+	t->file_checkpoint = 0.0;
 }
 
 static int free_datatype(MPI_Datatype *type)
@@ -441,7 +445,7 @@ int finalize_pd(PD *pd)
 		}
 	}
 
-	if (pd->time.cycle_time) free(pd->time.cycle_time);
+	if (pd->time.cycle_transfer_time) free(pd->time.cycle_transfer_time);
 	MPI_Comm_free(&pd->ens_comm);
 	free(pd->files);
 
@@ -467,71 +471,111 @@ void output_stat(PD *pd, char *comp_name)
 {
 	struct timing *time = &pd->time;
 	int i, ret; int num_cycles = pd->cycles;
-	double *cycle_time = NULL, *cycle_rtime, *cycle_wtime;
-	double *std_devi = NULL, *std_devi_r, *std_devi_w;
+	double *cycle_transfer_time = NULL, *cycle_transfer_rtime, *cycle_transfer_wtime;
+	double *cycle_file_time = NULL, *cycle_file_rtime, *cycle_file_wtime;
+	double *std_devi_t = NULL, *std_devi_rt, *std_devi_wt;
+	double *std_devi_f = NULL, *std_devi_rf, *std_devi_wf;
 
 	/* allocate buffers for cycle time data */
-	cycle_time = (double *)malloc(sizeof(double) * num_cycles * 3);
-	check_error(cycle_time, malloc);
-	memset(cycle_time, 0, sizeof(double) * num_cycles * 3);
-	cycle_rtime = cycle_time + num_cycles;
-	cycle_wtime = cycle_rtime + num_cycles;
+	cycle_transfer_time = (double *)malloc(sizeof(double) * num_cycles * 6);
+	check_error(cycle_transfer_time, malloc);
+	memset(cycle_transfer_time, 0, sizeof(double) * num_cycles * 6);
 
-	std_devi = (double *)malloc(sizeof(double) * num_cycles * 3);
-	check_error(cycle_time, malloc);
-	memset(std_devi, 0, sizeof(double) * num_cycles * 3);
-	std_devi_r = std_devi + num_cycles;
-	std_devi_w = std_devi_r + num_cycles;
+	cycle_transfer_rtime = cycle_transfer_time + num_cycles;
+	cycle_transfer_wtime = cycle_transfer_rtime + num_cycles;
+	cycle_file_time = cycle_transfer_wtime + num_cycles;
+	cycle_file_rtime = cycle_file_time + num_cycles;
+	cycle_file_wtime = cycle_file_rtime + num_cycles;
+
+	std_devi_t = (double *)malloc(sizeof(double) * num_cycles * 6);
+	check_error(std_devi_t, malloc);
+	memset(std_devi_t, 0, sizeof(double) * num_cycles * 6);
+	std_devi_rt = std_devi_t + num_cycles;
+	std_devi_wt = std_devi_rt + num_cycles;
+	std_devi_f = std_devi_wt + num_cycles;
+	std_devi_rf = std_devi_f + num_cycles;
+	std_devi_wf = std_devi_rf + num_cycles;
 
 	/* get sum of cycle time of all the processes
 	 * (for calculating std devi and avg)
 	 */
-	ret = MPI_Allreduce(time->cycle_time, cycle_time, num_cycles,
+	ret = MPI_Allreduce(time->cycle_transfer_time, cycle_transfer_time, num_cycles,
 			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 	check_mpi(ret, MPI_Allreduce);
 
-	ret = MPI_Allreduce(time->cycle_rtime, cycle_rtime, num_cycles,
+	ret = MPI_Allreduce(time->cycle_transfer_rtime, cycle_transfer_rtime, num_cycles,
 			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 	check_mpi(ret, MPI_Allreduce);
 
-	ret = MPI_Allreduce(time->cycle_wtime, cycle_wtime, num_cycles,
+	ret = MPI_Allreduce(time->cycle_transfer_wtime, cycle_transfer_wtime, num_cycles,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	check_mpi(ret, MPI_Allreduce);
+
+	ret = MPI_Allreduce(time->cycle_file_time, cycle_file_time, num_cycles,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	check_mpi(ret, MPI_Allreduce);
+
+	ret = MPI_Allreduce(time->cycle_file_rtime, cycle_file_rtime, num_cycles,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	check_mpi(ret, MPI_Allreduce);
+
+	ret = MPI_Allreduce(time->cycle_file_wtime, cycle_file_wtime, num_cycles,
 			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 	check_mpi(ret, MPI_Allreduce);
 
 	for (i = 0; i < num_cycles; i++) {
-		std_devi[i] = stand_devi(time->cycle_time[i], cycle_time[i], pd->world_size);
-		std_devi_r[i] = stand_devi(time->cycle_rtime[i], cycle_rtime[i], pd->world_size);
-		std_devi_w[i] = stand_devi(time->cycle_wtime[i], cycle_wtime[i], pd->world_size);
+		std_devi_t[i] = stand_devi(time->cycle_transfer_time[i], cycle_transfer_time[i], pd->world_size);
+		std_devi_rt[i] = stand_devi(time->cycle_transfer_rtime[i], cycle_transfer_rtime[i], pd->world_size);
+		std_devi_wt[i] = stand_devi(time->cycle_transfer_wtime[i], cycle_transfer_wtime[i], pd->world_size);
+		std_devi_f[i] = stand_devi(time->cycle_file_time[i], cycle_file_time[i], pd->world_size);
+		std_devi_rf[i] = stand_devi(time->cycle_file_rtime[i], cycle_file_rtime[i], pd->world_size);
+		std_devi_wf[i] = stand_devi(time->cycle_file_wtime[i], cycle_file_wtime[i], pd->world_size);
 	}
 
 	if (!pd->world_rank) {
 		double t_ct = 0.0, t_rct = 0.0, t_wct = 0.0;
+		double f_ct = 0.0, f_rct = 0.0, f_wct = 0.0;
 
 		for (i = 0; i < num_cycles; i++) {
 
-			cycle_time[i]  /= (double)pd->world_size;
-			cycle_rtime[i] /= (double)pd->world_size;
-			cycle_wtime[i] /= (double)pd->world_size;
+			cycle_transfer_time[i]  /= (double)pd->world_size;
+			cycle_transfer_rtime[i] /= (double)pd->world_size;
+			cycle_transfer_wtime[i] /= (double)pd->world_size;
+			cycle_file_time[i]  /= (double)pd->world_size;
+			cycle_file_rtime[i] /= (double)pd->world_size;
+			cycle_file_wtime[i] /= (double)pd->world_size;
 		
-			fprintf(stderr, "[%s] Cycle[%d]: Rd time: %.4f(%.4f)"
+			fprintf(stderr, "TRANSFER [%s] Cycle[%d]: Rd time: %.4f(%.4f)"
+					" Wr time: %.4f(%.4f) Total: %.4f(%.4f)\n"
+					"FILE [%s] Cycle[%d]: Rd time: %.4f(%.4f)"
 					" Wr time: %.4f(%.4f) Total: %.4f(%.4f)\n",
-					comp_name, i, cycle_rtime[i], std_devi_r[i],
-					cycle_wtime[i], std_devi_w[i],
-					cycle_time[i], std_devi[i]);
+					comp_name, i, cycle_transfer_rtime[i], std_devi_rt[i],
+					cycle_transfer_wtime[i], std_devi_wt[i],
+					cycle_transfer_time[i], std_devi_t[i],
+					comp_name, i, cycle_file_rtime[i], std_devi_rf[i],
+					cycle_file_wtime[i], std_devi_wf[i],
+					cycle_file_time[i], std_devi_f[i]);
 
 			/* ignore the initial cycle */
 			if (i) {
-				t_ct += cycle_time[i];
-				t_rct += cycle_rtime[i];
-				t_wct += cycle_wtime[i];
+				t_ct += cycle_transfer_time[i];
+				t_rct += cycle_transfer_rtime[i];
+				t_wct += cycle_transfer_wtime[i];
+				f_ct += cycle_file_time[i];
+				f_rct += cycle_file_rtime[i];
+				f_wct += cycle_file_wtime[i];
 			}
 		}
-		fprintf(stderr, "[%s] AVG Rd time: %.4f Wr time: %.4f Total: %.4f\n",
+		fprintf(stderr, "TRANSFER [%s] AVG Transfer Rd time: %.4f Wr time: %.4f Total: %.4f\n"
+				"FILE [%s] AVG File Rd time: %.4f Wr time: %.4f Total: %.4f\n",
 				comp_name, t_rct / (double)(pd->cycles - 1),
 				t_wct / (double)(pd->cycles - 1),
-				t_ct / (double)(pd->cycles - 1));
+				t_ct / (double)(pd->cycles - 1), 
+				comp_name, f_rct / (double)(pd->cycles - 1),
+				f_wct / (double)(pd->cycles - 1),
+				f_ct / (double)(pd->cycles - 1));
 	}
 
-	if (cycle_time) free(cycle_time);
-	if (std_devi) free(std_devi);
+	if (cycle_transfer_time) free(cycle_transfer_time);
+	if (std_devi_t) free(std_devi_t);
 }

@@ -395,19 +395,19 @@ int init_data_buf(struct data_buf **buf, int num)
 	return 0;
 }
 
-void cycle_time_start(PD *pd)
+void cycle_transfer_start(PD *pd)
 {
 	if (!pd) {
 		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
 		return;
 	}
-	pd->time.checkpoint = MPI_Wtime();
+	pd->time.trans_checkpoint = MPI_Wtime();
 }
 
-void cycle_time_end(PD *pd, int cycle)
+void cycle_transfer_end(PD *pd, int cycle)
 {
 	double t = MPI_Wtime();
-	double dur = t - pd->time.checkpoint;
+	double dur = t - pd->time.trans_checkpoint;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
@@ -418,14 +418,14 @@ void cycle_time_end(PD *pd, int cycle)
 		return;
 	}
 	
-	pd->time.cycle_time[cycle] += dur;
-	pd->time.checkpoint = t;
+	pd->time.cycle_transfer_time[cycle] += dur;
+	pd->time.trans_checkpoint = t;
 }
 
-void cycle_rtime_end(PD *pd, int cycle)
+void cycle_transfer_rend(PD *pd, int cycle)
 {
 	double t = MPI_Wtime();
-	double dur = t - pd->time.checkpoint;
+	double dur = t - pd->time.trans_checkpoint;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
@@ -436,15 +436,15 @@ void cycle_rtime_end(PD *pd, int cycle)
 		return;
 	}
 	
-	pd->time.cycle_rtime[cycle] += dur;
-	pd->time.cycle_time[cycle] += dur;
-	pd->time.checkpoint = t;
+	pd->time.cycle_transfer_rtime[cycle] += dur;
+	pd->time.cycle_transfer_time[cycle] += dur;
+	pd->time.trans_checkpoint = t;
 }
 
-void cycle_wtime_end(PD *pd, int cycle)
+void cycle_transfer_wend(PD *pd, int cycle)
 {
 	double t = MPI_Wtime();
-	double dur = t - pd->time.checkpoint;
+	double dur = t - pd->time.trans_checkpoint;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
@@ -455,7 +455,72 @@ void cycle_wtime_end(PD *pd, int cycle)
 		return;
 	}
 	
-	pd->time.cycle_wtime[cycle] += dur;
-	pd->time.cycle_time[cycle] += dur;
-	pd->time.checkpoint = t;
+	pd->time.cycle_transfer_wtime[cycle] += dur;
+	pd->time.cycle_transfer_time[cycle] += dur;
+	pd->time.trans_checkpoint = t;
+}
+
+void cycle_file_start(PD *pd)
+{
+	if (!pd) {
+		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
+		return;
+	}
+	pd->time.file_checkpoint = MPI_Wtime();
+}
+
+void cycle_file_end(PD *pd, int cycle)
+{
+	double t = MPI_Wtime();
+	double dur = t - pd->time.file_checkpoint;
+
+	if (!pd) {
+		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
+		return;
+	}
+	if (cycle < 0) {
+		fprintf(stderr, "[ERROR] Illegal cycle ID\n");
+		return;
+	}
+	
+	pd->time.cycle_file_time[cycle] += dur;
+	pd->time.file_checkpoint = t;
+}
+
+void cycle_file_rend(PD *pd, int cycle)
+{
+	double t = MPI_Wtime();
+	double dur = t - pd->time.file_checkpoint;
+
+	if (!pd) {
+		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
+		return;
+	}
+	if (cycle < 0) {
+		fprintf(stderr, "[ERROR] %s: Illegal cycle ID\n", __func__);
+		return;
+	}
+	
+	pd->time.cycle_file_rtime[cycle] += dur;
+	pd->time.cycle_file_time[cycle] += dur;
+	pd->time.file_checkpoint = t;
+}
+
+void cycle_file_wend(PD *pd, int cycle)
+{
+	double t = MPI_Wtime();
+	double dur = t - pd->time.file_checkpoint;
+
+	if (!pd) {
+		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
+		return;
+	}
+	if (cycle < 0) {
+		fprintf(stderr, "[ERROR] %s: Illegal cycle ID\n", __func__);
+		return;
+	}
+	
+	pd->time.cycle_file_wtime[cycle] += dur;
+	pd->time.cycle_file_time[cycle] += dur;
+	pd->time.file_checkpoint = t;
 }

@@ -418,17 +418,20 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 	
+	cycle_file_start(pd);
 
 	write_axis_vars(pd, HIST, cycle, ncid);
 	write_time_var(pd, ncid, cycle);
 	write_data_vars(pd, HIST, ncid, cycle);
 
-	cycle_time_start(pd);
+	cycle_file_wend(pd, cycle);
+
+	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
-	cycle_wtime_end(pd, cycle);
+	cycle_transfer_wend(pd, cycle);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -466,15 +469,19 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 
+	cycle_file_start(pd);
+
 	write_axis_vars(pd, ANAL, cycle, ncid);
 	write_data_vars(pd, ANAL, ncid, cycle);
 
-	cycle_time_start(pd);
+	cycle_file_wend(pd, cycle);
+
+	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 	
-	cycle_wtime_end(pd, cycle);
+	cycle_transfer_wend(pd, cycle);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -511,6 +518,8 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	// Generate file path
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".anal.nc", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
+
+	cycle_file_start(pd);
 
 	for (i = 0; i < num_vars; i++) {
 		struct var_pair *var = NULL;
@@ -656,12 +665,13 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 
-	cycle_time_start(pd);
+	cycle_file_rend(pd, cycle);
+	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
-	cycle_rtime_end(pd, cycle);
+	cycle_transfer_rend(pd, cycle);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);

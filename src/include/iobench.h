@@ -67,11 +67,14 @@ struct file_info {
 };
 
 struct timing {
-	double checkpoint;
-	double read_time;
-	double *cycle_time;
-	double *cycle_rtime;
-	double *cycle_wtime;
+	double trans_checkpoint;
+	double file_checkpoint;
+	double *cycle_transfer_time;
+	double *cycle_transfer_rtime;
+	double *cycle_transfer_wtime;
+	double *cycle_file_time;
+	double *cycle_file_rtime;
+	double *cycle_file_wtime;
 };
 
 typedef struct proc_data {
@@ -103,9 +106,14 @@ int fill_buffer(struct data_buf *buf, float c, float a, float w);
 int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight);
 int find_var(struct file_info *file, char *var_name);
 int init_data_buf(struct data_buf **buf, int num);
-void cycle_time_start(PD *pd);
-void cycle_time_end(PD *pd, int cycle);
-void cycle_rtime_end(PD *pd, int cycle);
-void cycle_wtime_end(PD *pd, int cycle);
+void cycle_transfer_start(PD *pd);
+void cycle_transfer_end(PD *pd, int cycle);
+void cycle_transfer_rend(PD *pd, int cycle);
+void cycle_transfer_wend(PD *pd, int cycle);
+
+void cycle_file_start(PD *pd);
+void cycle_file_end(PD *pd, int cycle);
+void cycle_file_rend(PD *pd, int cycle);
+void cycle_file_wend(PD *pd, int cycle);
 
 #endif // _IOBENCH_H_
