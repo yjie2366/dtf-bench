@@ -32,6 +32,8 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".hist.nc", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
+	cycle_file_start(pd);
+
 	for (i = 0; i < num_var; i++) {
 		struct data_buf *array = &arrays[i];
 		int varid = array->varid, ndims = array->ndims;
@@ -115,12 +117,13 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 
-	cycle_time_start(pd);
+	cycle_file_rend(pd, cycle);
+	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 	
-	cycle_rtime_end(pd, cycle);
+	cycle_transfer_rend(pd, cycle);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
@@ -155,6 +158,8 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		first_run = 1;
 		init_data_buf(&arrays, num_var);
 	}
+
+	cycle_file_start(pd);
 
 	for (i = 0; i < num_var; i++) {
 		int j;
@@ -236,12 +241,13 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 
-	cycle_time_start(pd);
+	cycle_file_rend(pd, cycle);
+	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 	
-	cycle_rtime_end(pd, cycle);
+	cycle_transfer_rend(pd, cycle);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
@@ -276,6 +282,8 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 		first_run = 1;
 		init_data_buf(&arrays, num_var);
 	}
+
+	cycle_file_start(pd);
 
 	for (i = 0; i < num_var; i++) {
 		struct var_pair *var = NULL;
@@ -360,12 +368,13 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 	
-	cycle_time_start(pd);
+	cycle_file_wend(pd, cycle);
+	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
-	cycle_wtime_end(pd, cycle);
+	cycle_transfer_wend(pd, cycle);
 	
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);

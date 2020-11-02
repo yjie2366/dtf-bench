@@ -77,7 +77,7 @@ cat <<- EOF > ${batch_script}
 #PJM -N "d-${nprocs}"
 #PJM -L "node=$((nprocs * 2))"
 #PJM -L "rscgrp=${rsc}"
-#PJM -L "elapse=00:30:00"
+#PJM -L "elapse=02:30:00"
 #PJM -g ${group[-1]}
 #PJM -S
 #PJM --spath ${log_dir}/%n.%j.stat
