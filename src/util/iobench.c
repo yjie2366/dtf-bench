@@ -356,6 +356,10 @@ void init_pd(int argc, char **argv, PD *pd)
 	pd->proc_rank_x = pd->ens_rank % pd->proc_num_x;
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
+	if (!pd->world_rank)
+		fprintf(stdout, "Process Topologies Info: X * Y: %d * %d\n",
+				pd->proc_num_x, pd->proc_num_y);
+
 	init_fileinfo(pd);
 
 	/*
@@ -566,8 +570,8 @@ void output_stat(PD *pd, char *comp_name)
 				f_wct += cycle_file_wtime[i];
 			}
 		}
-		fprintf(stderr, "TRANSFER [%s] AVG Transfer Rd time: %.4f Wr time: %.4f Total: %.4f\n"
-				"FILE [%s] AVG File Rd time: %.4f Wr time: %.4f Total: %.4f\n",
+		fprintf(stderr, "TRANSFER [%s] AVG Rd time: %.4f Wr time: %.4f Total: %.4f\n"
+				"FILE [%s] AVG Rd time: %.4f Wr time: %.4f Total: %.4f\n",
 				comp_name, t_rct / (double)(pd->cycles - 1),
 				t_wct / (double)(pd->cycles - 1),
 				t_ct / (double)(pd->cycles - 1), 
