@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <math.h>
 #include <pnetcdf.h>
 #include "bpconf.h"
 #include "iobench.h"
