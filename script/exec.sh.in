@@ -54,7 +54,7 @@ done
 if [ -z "$np" ]; then np=4; fi
 if [ -z "$imax" ]; then imax=80; fi
 if [ -z "$jmax" ]; then jmax=80; fi
-if [ -z "$cycles" ]; then cycles=11; fi
+if [ -z "$cycles" ]; then cycles=6; fi
 if [ -z "$member" ]; then member=2; fi
 if [ -z "$master" ]; then master=2; fi
 if [ -z "$num_run" ]; then num_run=1; fi
