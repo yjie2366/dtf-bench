@@ -19,6 +19,7 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 		first_run = 1;
 		init_data_buf(&arrays, file->naxes_buf);
 	}
+
 #ifdef TIMING_FILE
 	double t_fill = 0.0;
 	double t_put = 0.0;
@@ -290,7 +291,7 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 
 	if (!pd->world_rank) {
 		fprintf(stderr, "[SCALE]: FILE[%s] Write axis time: fill buffer %.4f iput %.4f wait all %.4f\n",
-			(file_idx == ANAL) "ANAL" : "HIST", t_fill, t_put, t_wait);
+			(file_idx == ANAL)? "ANAL" : "HIST", t_fill, t_put, t_wait);
 	}
 #endif
 	file->axes_buffer = arrays;
@@ -311,10 +312,11 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 		init_data_buf(&arrays, file->nvar_write_buf);
 	}
 
+#ifdef TIMING_FILE
 	double t_fill = 0.0;
 	double t_put = 0.0;
 	double t_wait = 0.0;
-
+#endif
 	/* Write to data variables */
 	for (i = offset; i < file->nvars; i++) {
 		int arr_idx = i - offset;
@@ -400,27 +402,30 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 			array->varid = varid;
 			array->nelems = total_count;
 		}
-
+#ifdef TIMING_FILE
 		double sf = MPI_Wtime();
-
+#endif
 		ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, SCALE_WEIGHT);
 		check_error(!ret, fill_buffer);
-	
+#ifdef TIMING_FILE	
 		double ef = MPI_Wtime();
 		t_fill += ef - sf;
-
+#endif
 		cycle_file_start(pd);
 
 		ret = ncmpi_bput_vara_float(ncid, varid, start, count, data, NULL);
 		check_io(ret, ncmpi_bput_vara_float);
 
 		cycle_file_wend(pd, cycle);
-
+#ifdef TIMING_FILE
 		double ep = MPI_Wtime();
 		t_put += ep - ef;
+#endif
 	}
 	
+#ifdef TIMING_FILE
 	double sw = MPI_Wtime();
+#endif
 
 	cycle_file_start(pd);
 
@@ -429,14 +434,15 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 	
 	cycle_file_wend(pd, cycle);
 
+#ifdef TIMING_FILE
 	double ew = MPI_Wtime();
 	t_wait += ew - sw;
 
 	if (!pd->world_rank) {
 		fprintf(stderr, "FILE[%s] Write data variable time: fill buffer %.4f iput %.4f wait all %.4f\n",
-			(file_idx == ANAL) "ANAL":"HIST", t_fill, t_put, t_wait);
+			(file_idx == ANAL)? "ANAL":"HIST", t_fill, t_put, t_wait);
 	}
-
+#endif
 	file->var_write_buffers = arrays;
 	
 	return 0;
@@ -522,7 +528,7 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 #ifdef TIMING_FILE
 	double t_e = MPI_Wtime();
 	t_t += t_e - t_s;
-	fprintf(stderr, "[SCALE] Write history transfer: %f\n", t_t);
+	fprintf(stderr, "[SCALE] Write HIST transfer time: %f\n", t_t);
 
 	report_put_size(pd, HIST, ncid);
 #endif
@@ -580,7 +586,7 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 #ifdef TIMING_FILE
 	double t_e = MPI_Wtime();
 	t_t += t_e - t_s;
-	fprintf(stderr, "[SCALE] Write ANAL transfer: %f\n", t_t);
+	fprintf(stderr, "[SCALE] Write ANAL transfer time: %f\n", t_t);
 
 	report_put_size(pd, ANAL, ncid);
 #endif
@@ -621,8 +627,10 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".anal.nc", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
+#ifdef TIMING_FILE
 	double t_get = 0.0;
 	double t_wait = 0.0;
+#endif
 
 	for (i = 0; i < num_vars; i++) {
 		struct var_pair *var = NULL;
@@ -761,21 +769,24 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 			f_count = start + ndims * 4;
 		}
 
+#ifdef TIMING_FILE
 		double s_g = MPI_Wtime();
-
+#endif
 		cycle_file_start(pd);
 
 		ret = ncmpi_iget_vara(ncid, varid, start, f_count, data, ntypes, dtype, NULL);
 		check_io(ret, ncmpi_iget_vara);
 
 		cycle_file_rend(pd, cycle);
-
+#ifdef TIMING_FILE
 		double e_g = MPI_Wtime();
 		t_get += e_g - s_g;
+#endif
 	}
 
+#ifdef TIMING_FILE
 	double sw = MPI_Wtime();
-
+#endif
 	cycle_file_start(pd);
 
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
@@ -783,6 +794,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 
 	cycle_file_rend(pd, cycle);
 
+#ifdef TIMING_FILE
 	double ew = MPI_Wtime();
 	t_wait += ew - sw;
 
@@ -791,10 +803,10 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 			t_get, t_wait);
 	}
 
-#ifdef TIMING_FILE
 	double t_t = 0.0;
 	double t_s = MPI_Wtime();
 #endif
+
 	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
@@ -805,7 +817,7 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 #ifdef TIMING_FILE
 	double t_e = MPI_Wtime();
 	t_t += t_e - t_s;
-	fprintf(stderr, "[SCALE] READ ANAL transfer: %f\n", t_t);
+	fprintf(stderr, "[SCALE] READ ANAL transfer time: %f\n", t_t);
 
 	report_get_size(pd, ANAL, ncid);
 #endif

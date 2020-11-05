@@ -122,15 +122,26 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 	check_io(ret, ncmpi_wait_all);
 
 	cycle_file_rend(pd, cycle);
-	
+
+#ifdef TIMING_FILE
+	double t_s = MPI_Wtime();
+	double t_t = 0.0;
+#endif
+
 	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 	
 	cycle_transfer_rend(pd, cycle);
-	
+
+#ifdef TIMING_FILE
+	double t_e = MPI_Wtime();
+	t_t += t_e - t_s;
+	fprintf(stderr, "[LETKF] Read HIST transfer time: %f\n", t_t);
+
 	report_get_size(pd, HIST, ncid);
+#endif
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
@@ -254,6 +265,11 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 
 	cycle_file_rend(pd, cycle);
 
+#ifdef TIMING_FILE
+	double t_s = MPI_Wtime();
+	double t_t = 0.0;
+#endif
+
 	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
@@ -261,7 +277,13 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	
 	cycle_transfer_rend(pd, cycle);
 
+#ifdef TIMING_FILE
+	double t_e = MPI_Wtime();
+	t_t += t_e - t_s;
+	fprintf(stderr, "[LETKF] Read ANAL transfer time: %f\n", t_t);
+
 	report_get_size(pd, ANAL, ncid);
+#endif
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
@@ -297,6 +319,11 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 		init_data_buf(&arrays, num_var);
 	}
 
+#ifdef TIMING_FILE
+	double t_fill = 0.0;
+	double t_put = 0.0;
+	double t_wait = 0.0;
+#endif
 	for (i = 0; i < num_var; i++) {
 		struct var_pair *var = NULL;
 		struct data_buf *array = &arrays[i];
@@ -370,16 +397,32 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 			count = start + ndims;
 		}
 
+#ifdef TIMING_FILE
+		double sf = MPI_Wtime();
+#endif
 		ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, LETKF_WEIGHT);
 		check_error(!ret, fill_buffer);
 		
+#ifdef TIMING_FILE
+		double ef = MPI_Wtime();
+		t_fill += ef - sf;
+#endif
 		cycle_file_start(pd);
 
 		ret = ncmpi_iput_vara_float(ncid, varid, start, count, data, NULL);
 		check_io(ret, ncmpi_iput_vara_float);
 
 		cycle_file_wend(pd, cycle);
+
+#ifdef TIMING_FILE
+		double ep = MPI_Wtime();
+		t_put += ep - ef;
+#endif
 	}
+
+#ifdef TIMING_FILE
+	double sw = MPI_Wtime();
+#endif
 
 	cycle_file_start(pd);
 
@@ -388,6 +431,17 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	
 	cycle_file_wend(pd, cycle);
 
+#ifdef TIMING_FILE
+	double ew = MPI_Wtime();
+	t_wait += ew - sw;
+
+	if (!pd->world_rank) {
+		fprintf(stderr, "[LETKF]: FILE[ANAL] Write var time: fill buffer %.4f iput %.4f wait all %.4f\n", t_fill, t_put, t_wait);
+	}
+
+	double t_t = 0.0;
+	double t_s = MPI_Wtime();
+#endif
 	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
@@ -395,7 +449,13 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 
 	cycle_transfer_wend(pd, cycle);
 	
+#ifdef TIMING_FILE
+	double t_e = MPI_Wtime();
+	t_t += t_e - t_s;
+	fprintf(stderr, "[LETKF] Write ANAL transfer time: %f\n", t_t);
+
 	report_put_size(pd, ANAL, ncid);
+#endif
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);

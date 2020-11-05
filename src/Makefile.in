@@ -16,7 +16,7 @@ S_OBJ := $(S_SRC:.c=.o)
 L_OBJ := $(L_SRC:.c=.o)
 U_OBJ := $(U_SRC:.c=.o)
 
-CFLAGS := -Wall -g -I$(TOP_DIR)/src/include -I$(PNETCDF)/include -I$(DTF)
+CFLAGS := -Wall -g -I$(TOP_DIR)/src/include -I$(PNETCDF)/include -I$(DTF) -DTIMING_FILE
 LIBS := -L$(PNETCDF)/lib -L$(DTF)
 LDFLAGS := -lpnetcdf -l:libdtf.a
 
