@@ -116,4 +116,7 @@ void cycle_file_end(PD *pd, int cycle);
 void cycle_file_rend(PD *pd, int cycle);
 void cycle_file_wend(PD *pd, int cycle);
 
+void report_put_size(PD *pd, int file_idx, int ncid);
+void report_get_size(PD *pd, int file_idx, int ncid);
+
 #endif // _IOBENCH_H_

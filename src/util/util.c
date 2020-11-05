@@ -524,3 +524,31 @@ void cycle_file_wend(PD *pd, int cycle)
 	pd->time.cycle_file_time[cycle] += dur;
 	pd->time.file_checkpoint = t;
 }
+
+void report_put_size(PD *pd, int file_idx, int ncid)
+{
+	int ret;
+	MPI_Offset io_size;
+	char *msg = (file_idx == ANAL) ? "ANAL write amount" : "HIST write amount";
+
+	ret = ncmpi_inq_put_size(ncid, &io_size);
+	check_io(ret, ncmpi_inq_put_size);
+
+	if (!pd->world_rank) {
+		fprintf(stderr, "%s: %ld\n", msg, io_size);
+	}
+}
+
+void report_get_size(PD *pd, int file_idx, int ncid)
+{
+	int ret;
+	MPI_Offset io_size;
+	char *msg = (file_idx == ANAL) ? "ANAL read amount" : "HIST read amount";
+
+	ret = ncmpi_inq_get_size(ncid, &io_size);
+	check_io(ret, ncmpi_inq_get_size);
+
+	if (!pd->world_rank) {
+		fprintf(stderr, "%s: %ld\n", msg, io_size);
+	}
+}

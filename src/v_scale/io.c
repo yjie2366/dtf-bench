@@ -121,11 +121,19 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 			ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, SCALE_WEIGHT);
 			check_error(!ret, fill_buffer);
 
+			cycle_file_start(pd);
+
 			ret = ncmpi_iput_vara_float(ncid, varid, &start,
 					&count, data, NULL);
 			check_io(ret, ncmpi_iput_vara_float);
+			
+			cycle_file_wend(pd, cycle);
 		}
 	}
+
+	double t_fill = 0.0;
+	double t_put = 0.0;
+	double t_wait = 0.0;
 
 	/* Write to AssociatedCoord variables */
 	for (; i < (num_coords + num_axis); i++) {
@@ -230,16 +238,40 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 			count = start + ndims;
 		}
 
+		double sf = MPI_Wtime();
 		ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, SCALE_WEIGHT);
 		check_error(!ret, fill_buffer);
+		
+		double ef = MPI_Wtime();
+		t_fill += ef - sf;
 
-		ret = ncmpi_iput_vara_float(ncid, var->varid, start,
-				count, data, NULL);
+		cycle_file_start(pd);
+
+		ret = ncmpi_iput_vara_float(ncid, var->varid, start, count, data, NULL);
 		check_io(ret, ncmpi_iput_vara_float);
+
+		cycle_file_wend(pd, cycle);
+
+		double ep = MPI_Wtime();
+		t_put += ep - ef;
 	}
+	
+	double sw = MPI_Wtime();
+
+	cycle_file_start(pd);
 	
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
+	
+	cycle_file_wend(pd, cycle);
+
+	double ew = MPI_Wtime();
+	t_wait += ew - sw;
+
+	if (!pd->world_rank) {
+		fprintf(stderr, "FILE[%d] Write axis time: fill buffer %.4f iput %.4f wait all %.4f\n",
+			file_idx, t_fill, t_put, t_wait);
+	}
 
 	file->axes_buffer = arrays;
 
@@ -258,6 +290,10 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 		first_run = 1;
 		init_data_buf(&arrays, file->nvar_write_buf);
 	}
+
+	double t_fill = 0.0;
+	double t_put = 0.0;
+	double t_wait = 0.0;
 
 	/* Write to data variables */
 	for (i = offset; i < file->nvars; i++) {
@@ -345,16 +381,42 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 			array->nelems = total_count;
 		}
 
+		double sf = MPI_Wtime();
+
 		ret = fill_buffer(array, (float)pd->world_rank, (float)cycle, SCALE_WEIGHT);
 		check_error(!ret, fill_buffer);
+	
+		double ef = MPI_Wtime();
+		t_fill += ef - sf;
+
+		cycle_file_start(pd);
 
 		ret = ncmpi_bput_vara_float(ncid, varid, start, count, data, NULL);
 		check_io(ret, ncmpi_bput_vara_float);
+
+		cycle_file_wend(pd, cycle);
+
+		double ep = MPI_Wtime();
+		t_put += ep - ef;
 	}
 	
+	double sw = MPI_Wtime();
+
+	cycle_file_start(pd);
+
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 	
+	cycle_file_wend(pd, cycle);
+
+	double ew = MPI_Wtime();
+	t_wait += ew - sw;
+
+	if (!pd->world_rank) {
+		fprintf(stderr, "FILE[%d] Write data variable time: fill buffer %.4f iput %.4f wait all %.4f\n",
+			file_idx, t_fill, t_put, t_wait);
+	}
+
 	file->var_write_buffers = arrays;
 	
 	return 0;
@@ -377,6 +439,8 @@ static int write_time_var(PD *pd, int ncid, int cycle)
 	ret = ncmpi_inq_varid(ncid, "time_bnds", &varid_bnds);
 	check_io(ret, ncmpi_inq_varid);
 
+	cycle_file_start(pd);
+
 	index[0] = 0;
 	ret = ncmpi_put_var1_double_all(ncid, varid_time, index, &time);
 	check_io(ret, ncmpi_put_var1_double_all);
@@ -388,6 +452,8 @@ static int write_time_var(PD *pd, int ncid, int cycle)
 	index[1] = 1;
 	ret = ncmpi_put_var1_double_all(ncid, varid_bnds, index, &time_e);
 	check_io(ret, ncmpi_put_var1_double_all);
+
+	cycle_file_wend(pd, cycle);
 
 	return ret;
 }
@@ -418,13 +484,9 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 	
-	cycle_file_start(pd);
-
 	write_axis_vars(pd, HIST, cycle, ncid);
 	write_time_var(pd, ncid, cycle);
 	write_data_vars(pd, HIST, ncid, cycle);
-
-	cycle_file_wend(pd, cycle);
 
 	cycle_transfer_start(pd);
 
@@ -432,6 +494,8 @@ int write_hist(PD *pd, char *dir_path, int cycle)
 	check_error(!ret, dtf_transfer);
 
 	cycle_transfer_wend(pd, cycle);
+
+	report_put_size(pd, HIST, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -469,12 +533,8 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 
-	cycle_file_start(pd);
-
 	write_axis_vars(pd, ANAL, cycle, ncid);
 	write_data_vars(pd, ANAL, ncid, cycle);
-
-	cycle_file_wend(pd, cycle);
 
 	cycle_transfer_start(pd);
 
@@ -482,6 +542,8 @@ int write_anal(PD *pd, char *dir_path, int cycle)
 	check_error(!ret, dtf_transfer);
 	
 	cycle_transfer_wend(pd, cycle);
+
+	report_put_size(pd, ANAL, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -519,7 +581,8 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 	fmt_filename(cycle, pd->ens_id, 6, dir_path, ".anal.nc", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
-	cycle_file_start(pd);
+	double t_get = 0.0;
+	double t_wait = 0.0;
 
 	for (i = 0; i < num_vars; i++) {
 		struct var_pair *var = NULL;
@@ -658,20 +721,44 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 			f_count = start + ndims * 4;
 		}
 
+		double s_g = MPI_Wtime();
+
+		cycle_file_start(pd);
+
 		ret = ncmpi_iget_vara(ncid, varid, start, f_count, data, ntypes, dtype, NULL);
 		check_io(ret, ncmpi_iget_vara);
+
+		cycle_file_rend(pd, cycle);
+
+		double e_g = MPI_Wtime();
+		t_get += e_g - s_g;
 	}
+
+	double sw = MPI_Wtime();
+
+	cycle_file_start(pd);
 
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 
 	cycle_file_rend(pd, cycle);
+
+	double ew = MPI_Wtime();
+	t_wait += ew - sw;
+
+	if (!pd->world_rank) {
+		fprintf(stderr, "FILE[ANAL] Read ANAL time: iget %.4f wait all %.4f\n",
+			t_get, t_wait);
+	}
+
 	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
 	cycle_transfer_rend(pd, cycle);
+
+	report_get_size(pd, ANAL, ncid);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
