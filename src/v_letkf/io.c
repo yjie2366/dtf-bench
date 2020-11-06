@@ -148,6 +148,10 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 
 	file->var_read_buffers = arrays;
 
+#ifdef TIMING_FILE
+	double t_c = 0.0;
+	double cs = MPI_Wtime();
+#endif
 	/* Check validity of read values */
 	for (i = 0; i < num_var; i++) {
 		struct data_buf *read_buf = &file->var_read_buffers[i];
@@ -155,6 +159,11 @@ int read_hist(PD *pd, char *dir_path, int cycle)
 		ret = compare_buffer(pd, read_buf, cycle, SCALE_WEIGHT);
 		check_error(!ret, compare_buffer);
 	}
+#ifdef TIMING_FILE
+	double ce = MPI_Wtime();
+	t_c += ce - cs;
+	fprintf(stderr, "[LETKF] READ HIST check value time: %f\n", t_c);
+#endif
 
 	return ret;
 }
@@ -290,6 +299,10 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 
 	file->var_read_buffers = arrays;
 
+#ifdef TIMING_FILE
+	double t_c = 0.0;
+	double cs = MPI_Wtime();
+#endif
 	// Check validity of read values
 	for (i = 0; i < num_var; i++) {
 		struct data_buf *read_buf = &file->var_read_buffers[i];
@@ -298,6 +311,11 @@ int read_anal(PD *pd, char *dir_path, int cycle)
 		check_error(!ret, compare_buffer);
 	}
 
+#ifdef TIMING_FILE
+	double ce = MPI_Wtime();
+	t_c += ce - cs;
+	fprintf(stderr, "[LETKF] READ ANAL check value time: %f\n", t_c);
+#endif
 	return ret;
 }
 
