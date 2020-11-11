@@ -24,11 +24,11 @@ int main(int argc, char **argv)
 	init_pd(argc, argv, pd);
 	
 	/* Start cycling */
-//	for (cycle = 0; cycle < pd->cycles; cycle++) {
-//	      	read_hist(pd, cycle);
+	for (cycle = 0; cycle < pd->cycles; cycle++) {
+	//      	read_hist(pd, cycle);
 		read_anal(pd, cycle);
 		write_anal(pd, cycle);
-//	}
+	}
 
 	output_stat(pd, comp_name);
 	finalize_pd(pd);

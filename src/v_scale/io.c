@@ -9,37 +9,34 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 {
 	int i, ret = 0;
 	struct file_info *file = &pd->files[file_idx];
-	struct data_buf *arrays = file->var_write_buffers;
 	int num_axis = NUM_AXIS_VARS;
 	int num_coords = file->nassct_coords;
+	struct data_buf *arrays = file->var_write_buffers;
 	
-	/* Write to AXIS variables */
-	for (i = 0; i < num_axis + num_coords; i++) {
+	/* Write to AssociatedCoord variables */
+	for (i = 0; i < (num_coords + num_axis); i++) {
 		struct data_buf *array = &arrays[i];
 		int ndims = array->ndims;
-		float *data = array->data;
-		MPI_Offset *start = array->shape;
-	       	MPI_Offset *count = array->shape + ndims;
-
 		int varid = array->varid;
+		MPI_Offset *start = NULL;
+	       	MPI_Offset *count = NULL;
+		float *data = array->data;
 
-		/* 
-		 * MIND that some process does not have data
-		 * for 1D axis variable
-		*/
 		if (data) {
+			start = array->shape;
+			count = start + ndims;
+
 			cycle_file_start(pd);
 
-			ret = ncmpi_iput_vara_float(ncid, varid, start,
-					count, data, NULL);
+			ret = ncmpi_iput_vara_float(ncid, varid, start, count, data, NULL);
 			check_io(ret, ncmpi_iput_vara_float);
-			
+
 			cycle_file_wend(pd, cycle);
 		}
 	}
-
+	
 	cycle_file_start(pd);
-
+	
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 	
@@ -58,7 +55,6 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 	/* Write to data variables */
 	for (i = offset; i < file->nvars; i++) {
 		struct data_buf *array = &arrays[i];
-
 		int ndims = array->ndims;
 		int varid = array->varid;
 		MPI_Offset *start = array->shape;
@@ -81,7 +77,7 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 	check_io(ret, ncmpi_wait_all);
 	
 	cycle_file_wend(pd, cycle);
-	
+
 	return 0;
 }
 
@@ -123,11 +119,12 @@ static int write_time_var(PD *pd, int ncid, int cycle)
 
 int write_hist(PD *pd, int cycle)
 {
-	int ret = 0; int ncid = -1;
+	int ret = 0;
+	int ncid = -1;
 	struct file_info *file = &pd->files[HIST];
 	char *file_path = file->file_names[cycle];
 	MPI_Offset buf_size = file->databuf_sz;
-
+	
 	prepare_file(file, pd->ens_comm, file_path, FILE_CREATE, &ncid);
 	
 	ret = ncmpi_buffer_attach(ncid, buf_size);
@@ -147,7 +144,7 @@ int write_hist(PD *pd, int cycle)
 
 	cycle_transfer_wend(pd, cycle);
 
-//	report_put_size(pd, HIST, ncid);
+	report_put_size(pd, HIST, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -160,7 +157,8 @@ int write_hist(PD *pd, int cycle)
 
 int write_anal(PD *pd, int cycle)
 {
-	int ret; int ncid = -1;
+	int ret;
+	int ncid = -1;
 	struct file_info *file = &pd->files[ANAL];
 	char *file_path = file->file_names[cycle];
 	MPI_Offset buf_size = file->databuf_sz;
@@ -182,8 +180,8 @@ int write_anal(PD *pd, int cycle)
 	check_error(!ret, dtf_transfer);
 	
 	cycle_transfer_wend(pd, cycle);
-
-//	report_put_size(pd, ANAL, ncid);
+	
+	report_put_size(pd, ANAL, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -199,30 +197,105 @@ extern struct io_vars anal_vars[];
 int read_anal(PD *pd, int cycle)
 {
 	int i, ret, ncid = -1;
-
 	struct file_info *file = &pd->files[ANAL];
 	struct data_buf *arrays = file->var_read_buffers;
 	char *file_path = file->file_names[cycle];
 
-	fprintf(stderr, "READ file %s\n", file_path);
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
 	for (i = 0; i < NUM_IOVARS_ANAL; i++) {
 		int idx = anal_vars[i].idx;
+		struct var_pair *var = &file->vars[idx];
 		struct data_buf *array = &arrays[idx];
-		float *data = array->data;
-		int ndims = array->ndims;
-		int varid = array->varid;
-
-		MPI_Offset *start = array->shape;
-	       	MPI_Offset *count = start + ndims;
-		MPI_Offset ntypes = array->ntypes;
-		MPI_Datatype dtype = array->dtype;
+		float *data = NULL;
+		int ndims, varid;
+		MPI_Offset ntypes = 1;
+		MPI_Datatype dtype = MPI_DATATYPE_NULL;
+		MPI_Offset *start, *count;
 
 		/* 
 		 * OCEAN, LAND and URBAN variables are not read
 		 * after the initial cycle; so we ignore them
 		 */
+		if (!cycle) {
+			int size[3] = { 0 };
+			int sub_size[3] = { 0 };
+			int sub_off[3] = { 0 };
+			int j;
+
+			MPI_Offset total_count = 1;
+
+			ndims = var->ndims;
+			varid = var->varid;
+
+			start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
+			check_error(start, malloc);
+			memset(start, 0, sizeof(MPI_Offset) * ndims * 2);
+			count = start + ndims;
+
+			for (j = 0; j < ndims; j++) {
+				if (strchr(var->dim_name[j], 'z')) {
+					start[j] = 0;
+					count[j] = KMAX;
+					size[j] = KA;
+					sub_size[j] = KMAX;
+					sub_off[j] = KHALO;
+
+					if (strchr(var->dim_name[j], 'h'))
+						sub_off[j] -= 1;
+				}
+				else if (strchr(var->dim_name[j], 'y')) {
+					start[j] = JS_inG(pd);
+					count[j] = JMAX(pd);
+					size[j] = JA(pd);
+					sub_size[j] = JMAX(pd);
+					sub_off[j] = JHALO;
+				}
+				else if (strchr(var->dim_name[j], 'x')) {
+					start[j] = IS_inG(pd);
+					count[j] = IMAX(pd);
+					size[j] = IA(pd);
+					sub_size[j] = IMAX(pd);
+					sub_off[j] = IHALO;
+				}
+			}
+
+			ntypes = 1;
+
+			MPI_Type_create_subarray(ndims, size, sub_size,
+					sub_off, MPI_ORDER_C, MPI_FLOAT, &dtype);
+			MPI_Type_commit(&dtype);
+
+			total_count = IA(pd) * JA(pd) * KA;
+
+			data = (float *)malloc(sizeof(float) * total_count);
+			check_error(data, malloc);
+			memset(data, 0, sizeof(float) * total_count);
+
+			array->ndims = ndims;
+			array->shape = start;
+			array->varid = varid;
+			array->data = data;
+			array->nelems = total_count;
+			array->dtype = dtype;
+			array->ntypes = ntypes;
+		}
+		else {
+			ndims = array->ndims;
+			varid = array->varid;
+			data = array->data;
+			ntypes = array->ntypes;
+			dtype = array->dtype;
+			start = array->shape;
+			count = start + ndims;
+		}
+
+		// DEBUG
+		int j;
+		fprintf(stderr, "VARID: %d NAME: %s IDX %d\n", varid, var->name, idx);
+		for ( j = 0; j < ndims; j ++)
+			fprintf(stderr, "dim %d start-->count: %ld-->%ld\n", j, start[j], count[j]);
+
 		cycle_file_start(pd);
 
 		ret = ncmpi_iget_vara(ncid, varid, start, count, data, ntypes, dtype, NULL);
@@ -231,21 +304,22 @@ int read_anal(PD *pd, int cycle)
 		cycle_file_rend(pd, cycle);
 	}
 
+	report_get_size(pd, ANAL, ncid);
+
 	cycle_file_start(pd);
 
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
 
 	cycle_file_rend(pd, cycle);
-	
+
+
 	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
 	cycle_transfer_rend(pd, cycle);
-
-//	report_get_size(pd, ANAL, ncid);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
