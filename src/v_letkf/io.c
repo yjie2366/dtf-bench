@@ -215,13 +215,6 @@ int write_anal(PD *pd, int cycle)
 		MPI_Offset *start = array->shape;
 		MPI_Offset *count = start + ndims;
 
-		// DEBUG
-		int j;
-		struct var_pair *var = &file->vars[idx];
-		fprintf(stderr, "VARID: %d NAME: %s IDX %d\n", var->varid, var->name, idx);
-		for ( j = 0; j < ndims; j ++)
-			fprintf(stderr, "dim %d start-->count: %ld-->%ld\n", j, start[j], count[j]);
-		
 		cycle_file_start(pd);
 
 		ret = ncmpi_iput_vara_float(ncid, varid, start, count, data, NULL);
@@ -229,7 +222,6 @@ int write_anal(PD *pd, int cycle)
 
 		cycle_file_wend(pd, cycle);
 	}
-	report_put_size(pd, ANAL, ncid);
 
 	cycle_file_start(pd);
 
@@ -245,6 +237,8 @@ int write_anal(PD *pd, int cycle)
 
 	cycle_transfer_wend(pd, cycle);
 	
+	report_put_size(pd, ANAL, ncid);
+
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 

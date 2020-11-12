@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 	
 	/* Start cycling */
 	for (cycle = 0; cycle < pd->cycles; cycle++) {
-	//      	read_hist(pd, cycle);
+	      	read_hist(pd, cycle);
 		read_anal(pd, cycle);
 		write_anal(pd, cycle);
 	}

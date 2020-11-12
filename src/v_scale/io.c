@@ -290,12 +290,6 @@ int read_anal(PD *pd, int cycle)
 			count = start + ndims;
 		}
 
-		// DEBUG
-		int j;
-		fprintf(stderr, "VARID: %d NAME: %s IDX %d\n", varid, var->name, idx);
-		for ( j = 0; j < ndims; j ++)
-			fprintf(stderr, "dim %d start-->count: %ld-->%ld\n", j, start[j], count[j]);
-
 		cycle_file_start(pd);
 
 		ret = ncmpi_iget_vara(ncid, varid, start, count, data, ntypes, dtype, NULL);
