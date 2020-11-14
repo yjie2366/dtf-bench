@@ -4,6 +4,10 @@
 #include <dirent.h>
 #include "util.h"
 
+#ifdef TIMING
+extern char *comp_name;
+#endif
+
 extern struct dim_pair anal_dims[];
 extern struct dim_pair hist_dims[];
 
@@ -321,7 +325,12 @@ MPI_Offset get_databuf_size(PD *pd, int file_idx)
 int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int flag, int *ncid)
 {
 	int i, ret, fid;
-	
+#ifdef TIMING
+	double oc_t = 0.0;
+	double defdim_t = 0.0;
+	double defvar_t = 0.0;
+	double oc_ts = MPI_Wtime();
+#endif	
 	if (flag & FILE_CREATE) {
 		ret = ncmpi_create(comm, file_path, NC_CLOBBER | NC_64BIT_OFFSET,
 					MPI_INFO_NULL, &fid);
@@ -333,7 +342,12 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 		ret = ncmpi_open(comm, file_path, mode, MPI_INFO_NULL, &fid);
 		check_io(ret, ncmpi_open);
 	}
-	
+#ifdef TIMING
+	double oc_te = MPI_Wtime();
+	oc_t += oc_te - oc_ts;
+
+	double defdim_ts = MPI_Wtime();
+#endif
 	for (i = 0; i < file->ndims; i++) {
 		struct dim_pair *dim = &file->dims[i];
 
@@ -346,7 +360,11 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 			check_io(ret, ncmpi_inq_dimid);
 		}
 	}
-
+#ifdef TIMING
+	double defdim_te = MPI_Wtime();
+	defdim_t += defdim_te - defdim_ts;
+#endif
+	
 	for (i = 0; i < file->nvars; i++) {
 		int j;
 		struct var_pair *var = &file->vars[i];
@@ -356,6 +374,9 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 			check_io(ret, ncmpi_inq_dimid);
 		}
 
+#ifdef TIMING
+		double defvar_ts = MPI_Wtime();
+#endif
 		if (flag & FILE_CREATE) {
 			ret = ncmpi_def_var(fid, var->name, var->type, var->ndims,
 					var->dims, &var->varid);
@@ -367,10 +388,18 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 			ret = ncmpi_inq_varid(fid, var->name, &var->varid);
 			check_io(ret, ncmpi_inq_varid);
 		}
+#ifdef TIMING
+		double defvar_te = MPI_Wtime();
+		defvar_t += defvar_te - defvar_ts;
+#endif
 	}
 
 	*ncid = fid;
-
+#ifdef TIMING
+	fprintf(stderr, "%s: Time to create/open %s:  %f\n", comp_name, oc_t, file_path);
+	fprintf(stderr, "%s: Time to define dim/inquire dim: %f\n", comp_name, defdim_t);
+	fprintf(stderr, "%s: Time to define var/inquire var: %f\n", comp_name, defvar_t);
+#endif
 	return 0;
 }
 

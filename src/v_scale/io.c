@@ -13,6 +13,10 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 	int num_coords = file->nassct_coords;
 	struct data_buf *arrays = file->var_write_buffers;
 	
+#ifdef TIMING
+	double put_t = 0.0;
+	double wait_t = 0.0;
+#endif
 	/* Write to AssociatedCoord variables */
 	for (i = 0; i < (num_coords + num_axis); i++) {
 		struct data_buf *array = &arrays[i];
@@ -27,19 +31,32 @@ static int write_axis_vars(PD *pd, int file_idx, int cycle, int ncid)
 			count = start + ndims;
 
 			cycle_file_start(pd);
-
+#ifdef TIMING
+			double put_ts = MPI_Wtime();
+#endif
 			ret = ncmpi_iput_vara_float(ncid, varid, start, count, data, NULL);
 			check_io(ret, ncmpi_iput_vara_float);
-
+#ifdef TIMING
+			double put_te = MPI_Wtime();
+			put_t += put_te - put_ts;
+#endif
 			cycle_file_wend(pd, cycle);
 		}
 	}
 	
 	cycle_file_start(pd);
-	
+#ifdef TIMING
+	double wait_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
-	
+#ifdef TIMING
+	double wait_te = MPI_Wtime();
+	wait_t += wait_te - wait_ts;
+
+	fprintf(stderr, "CYCLE[%d] SCALE write %s AXIS:\n", cycle, (file_idx == ANAL)?"ANAL":"HIST");
+	fprintf(stderr, "iput: %f wait_all: %f\n", put_t, wait_t);
+#endif
 	cycle_file_wend(pd, cycle);
 
 	return ret;
@@ -52,6 +69,10 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 	struct file_info *file = &pd->files[file_idx];
 	struct data_buf *arrays = file->var_write_buffers;
 
+#ifdef TIMING
+	double put_t = 0.0;
+	double wait_t = 0.0;
+#endif
 	/* Write to data variables */
 	for (i = offset; i < file->nvars; i++) {
 		struct data_buf *array = &arrays[i];
@@ -64,18 +85,31 @@ static int write_data_vars(PD *pd, int file_idx, int ncid, int cycle)
 		// Keep in mind that processes at the edge of ensemble 
 		// may have bigger buffer because of the included HALO area
 		cycle_file_start(pd);
-
+#ifdef TIMING
+		double put_ts = MPI_Wtime();
+#endif
 		ret = ncmpi_bput_vara_float(ncid, varid, start, count, data, NULL);
 		check_io(ret, ncmpi_bput_vara_float);
-
+#ifdef TIMING
+		double put_te = MPI_Wtime();
+		put_t += put_te - put_ts;
+#endif
 		cycle_file_wend(pd, cycle);
 	}
 	
 	cycle_file_start(pd);
-
+#ifdef TIMING
+	double wait_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
-	
+#ifdef TIMING
+	double wait_te = MPI_Wtime();
+	wait_t += wait_te - wait_ts;
+
+	fprintf(stderr, "CYCLE[%d] SCALE write %s VARS:\n", cycle, (file_idx == ANAL)?"ANAL":"HIST");
+	fprintf(stderr, "iput: %f wait_all: %f\n", put_t, wait_t);
+#endif
 	cycle_file_wend(pd, cycle);
 
 	return 0;
@@ -100,6 +134,10 @@ static int write_time_var(PD *pd, int ncid, int cycle)
 
 	cycle_file_start(pd);
 
+#ifdef TIMING
+	double put_t = 0.0;
+	double put_ts = MPI_Wtime();
+#endif
 	index[0] = 0;
 	ret = ncmpi_put_var1_double_all(ncid, varid_time, index, &time);
 	check_io(ret, ncmpi_put_var1_double_all);
@@ -111,7 +149,13 @@ static int write_time_var(PD *pd, int ncid, int cycle)
 	index[1] = 1;
 	ret = ncmpi_put_var1_double_all(ncid, varid_bnds, index, &time_e);
 	check_io(ret, ncmpi_put_var1_double_all);
+#ifdef TIMING
+	double put_te = MPI_Wtime();
+	put_t += put_te - put_ts;
 
+	fprintf(stderr, "CYCLE[%d]: SCALE blocking write HIST TIME VARS:\nput: %f\n",
+			cycle, put_t);
+#endif
 	cycle_file_wend(pd, cycle);
 
 	return ret;
@@ -127,31 +171,71 @@ int write_hist(PD *pd, int cycle)
 	
 	prepare_file(file, pd->ens_comm, file_path, FILE_CREATE, &ncid);
 	
+#ifdef TIMING
+	double bufatt_t = 0.0;
+	double bufdtch_t = 0.0;
+	double enddef_t = 0.0;
+	double trans_t = 0.0;
+	double close_t = 0.0;
+
+	double bufatt_ts = MPI_Wtime();
+#endif
+
 	ret = ncmpi_buffer_attach(ncid, buf_size);
 	check_io(ret, ncmpi_buffer_attach);
 
+#ifdef TIMING
+	double bufatt_te = MPI_Wtime();
+	bufatt_t += bufatt_te - bufatt_ts;
+	
+	double enddef_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
-	
+#ifdef TIMING
+	double enddef_te = MPI_Wtime();
+	enddef_t += enddef_te - enddef_ts;
+#endif
+
 	write_axis_vars(pd, HIST, cycle, ncid);
 	write_time_var(pd, ncid, cycle);
 	write_data_vars(pd, HIST, ncid, cycle);
 
 	cycle_transfer_start(pd);
-
+#ifdef TIMING
+	double trans_ts = MPI_Wtime();
+#endif
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
-
+#ifdef TIMING
+	double trans_te = MPI_Wtime();
+	trans_t += trans_te - trans_ts;
+#endif
 	cycle_transfer_wend(pd, cycle);
 
+#ifdef TIMING
 	report_put_size(pd, HIST, ncid);
-
+	double bufdtch_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
-
+#ifdef TIMING
+	double bufdtch_te = MPI_Wtime();
+	bufdtch_t += bufdtch_te - bufdtch_ts;
+	double close_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
+#ifdef TIMING
+	double close_te = MPI_Wtime();
+	close_t += close_te - close_ts;
 
+	fprintf(stderr, "SCALE write HIST:\n");
+	fprintf(stderr,
+	"buf_attach: %f enddef: %f transfer: %f detach: %f close: %f\n",
+		bufatt_t, enddef_t, trans_t, bufdtch_t, close_t);
+	fprintf(stderr, "--------- CYCLE[%d] SCALE WRITE HIST END ---------\n",cycle);
+#endif
 	return ret;
 }
 
@@ -165,30 +249,70 @@ int write_anal(PD *pd, int cycle)
 
 	prepare_file(file, pd->ens_comm, file_path, FILE_CREATE, &ncid);
 
+#ifdef TIMING
+	double bufatt_t = 0.0;
+	double bufdtch_t = 0.0;
+	double enddef_t = 0.0;
+	double trans_t = 0.0;
+	double close_t = 0.0;
+
+	double bufatt_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_buffer_attach(ncid, buf_size);
 	check_io(ret, ncmpi_buffer_attach);
 
+#ifdef TIMING
+	double bufatt_te = MPI_Wtime();
+	bufatt_t += bufatt_te - bufatt_ts;
+	
+	double enddef_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_enddef(ncid);
 	check_io(ret, ncmpi_enddef);
 
+#ifdef TIMING
+	double enddef_te = MPI_Wtime();
+	enddef_t += enddef_te - enddef_ts;
+#endif
 	write_axis_vars(pd, ANAL, cycle, ncid);
 	write_data_vars(pd, ANAL, ncid, cycle);
 
 	cycle_transfer_start(pd);
-
+#ifdef TIMING
+	double trans_ts = MPI_Wtime();
+#endif
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
-	
+#ifdef TIMING
+	double trans_te = MPI_Wtime();
+	trans_t += trans_te - trans_ts;
+#endif
 	cycle_transfer_wend(pd, cycle);
-	
-	report_put_size(pd, ANAL, ncid);
 
+#ifdef TIMING
+	report_put_size(pd, ANAL, ncid);
+	double bufdtch_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
-
+#ifdef TIMING
+	double bufdtch_te = MPI_Wtime();
+	bufdtch_t += bufdtch_te - bufdtch_ts;
+	double close_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
+#ifdef TIMING
+	double close_te = MPI_Wtime();
+	close_t += close_te - close_ts;
+
+	fprintf(stderr, "CYCLE[%d] SCALE write ANAL:\n", cycle);
+	fprintf(stderr,
+	"buf_attach: %f enddef: %f transfer: %f detach: %f close: %f\n",
+		bufatt_t, enddef_t, trans_t, bufdtch_t, close_t);
+	fprintf(stderr, "----------------CYCLE[%d] SCALE WRITE ANAL END---------\n",cycle);
+#endif
 	return 0;
 }
 
@@ -203,6 +327,12 @@ int read_anal(PD *pd, int cycle)
 
 	prepare_file(file, pd->ens_comm, file_path, FILE_OPEN_R, &ncid);
 
+#ifdef TIMING
+	double get_t = 0.0;
+	double wait_t = 0.0;
+	double trans_t = 0.0;
+	double close_t = 0.0;
+#endif
 	for (i = 0; i < NUM_IOVARS_ANAL; i++) {
 		int idx = anal_vars[i].idx;
 		struct var_pair *var = &file->vars[idx];
@@ -291,32 +421,60 @@ int read_anal(PD *pd, int cycle)
 		}
 
 		cycle_file_start(pd);
-
+#ifdef TIMING
+		double get_ts = MPI_Wtime();
+#endif
 		ret = ncmpi_iget_vara(ncid, varid, start, count, data, ntypes, dtype, NULL);
 		check_io(ret, ncmpi_iget_vara);
-
+#ifdef TIMING
+		double get_te = MPI_Wtime();
+		get_t += get_te - get_ts;
+#endif
 		cycle_file_rend(pd, cycle);
 	}
 
-	report_get_size(pd, ANAL, ncid);
-
 	cycle_file_start(pd);
 
+#ifdef TIMING
+	double wait_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
 	check_io(ret, ncmpi_wait_all);
-
+#ifdef TIMING
+	double wait_te = MPI_Wtime();
+	wait_t += wait_te - wait_ts;
+#endif
 	cycle_file_rend(pd, cycle);
-
 
 	cycle_transfer_start(pd);
 
+#ifdef TIMING
+	double trans_ts = MPI_Wtime();
+#endif
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
+#ifdef TIMING
+	double trans_te = MPI_Wtime();
+	trans_t += trans_te - trans_ts;
+#endif	
 	cycle_transfer_rend(pd, cycle);
 
+#ifdef TIMING
+	report_get_size(pd, ANAL, ncid);
+	double close_ts = MPI_Wtime();
+#endif
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
 
+#ifdef TIMING
+	double close_te = MPI_Wtime();
+	close_t += close_te - close_ts;
+	
+	fprintf(stderr, "CYCLE[%d]: SCALE read ANAL:\n", cycle);
+	fprintf(stderr, "iget: %f wait_all: %f  transfer: %f  close: %f\n",
+			get_t, wait_t, trans_t, close_t);
+	fprintf(stderr, "-------------- CYCLE %d READ ANAL END -------------\n", cycle);
+#endif
 	return 0;
 }
