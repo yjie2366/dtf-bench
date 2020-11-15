@@ -139,12 +139,21 @@ int write_hist(PD *pd, int cycle)
 
 	cycle_transfer_start(pd);
 
+#ifdef PRINT_STATS
+	FJMPI_Collection_clear();
+	FJMPI_Collection_start();
+#endif
+
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
+#ifdef PRINT_STATS
+	FJMPI_Collection_stop();
+	FJMPI_Collection_print("SCALE WRITE HIST");
+#endif
 
 	cycle_transfer_wend(pd, cycle);
 
-	report_put_size(pd, HIST, ncid);
+//	report_put_size(pd, HIST, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -175,13 +184,21 @@ int write_anal(PD *pd, int cycle)
 	write_data_vars(pd, ANAL, ncid, cycle);
 
 	cycle_transfer_start(pd);
+#ifdef PRINT_STATS
+	FJMPI_Collection_clear();
+	FJMPI_Collection_start();
+#endif
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
+#ifdef PRINT_STATS
+	FJMPI_Collection_stop();
+	FJMPI_Collection_print("SCALE WRITE ANAL");
+#endif
 	
 	cycle_transfer_wend(pd, cycle);
 	
-	report_put_size(pd, ANAL, ncid);
+//	report_put_size(pd, ANAL, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -298,7 +315,7 @@ int read_anal(PD *pd, int cycle)
 		cycle_file_rend(pd, cycle);
 	}
 
-	report_get_size(pd, ANAL, ncid);
+//	report_get_size(pd, ANAL, ncid);
 
 	cycle_file_start(pd);
 
@@ -310,8 +327,17 @@ int read_anal(PD *pd, int cycle)
 
 	cycle_transfer_start(pd);
 
+#ifdef PRINT_STATS
+	FJMPI_Collection_clear();
+	FJMPI_Collection_start();
+#endif
+
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
+#ifdef PRINT_STATS
+	FJMPI_Collection_stop();
+	FJMPI_Collection_print("SCALE READ ANAL");
+#endif
 
 	cycle_transfer_rend(pd, cycle);
 

@@ -88,12 +88,20 @@ int read_hist(PD *pd, int cycle)
 
 	cycle_transfer_start(pd);
 
+#ifdef PRINT_STATS
+	FJMPI_Collection_clear();
+	FJMPI_Collection_start();
+#endif
+
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
-	
+#ifdef PRINT_STATS
+	FJMPI_Collection_stop();
+	FJMPI_Collection_print("LETKF READ HIST");
+#endif
 	cycle_transfer_rend(pd, cycle);
 
-	report_get_size(pd, HIST, ncid);
+//	report_get_size(pd, HIST, ncid);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
@@ -183,12 +191,21 @@ int read_anal(PD *pd, int cycle)
 
 	cycle_transfer_start(pd);
 
+#ifdef PRINT_STATS
+	FJMPI_Collection_clear();
+	FJMPI_Collection_start();
+#endif
+
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
+#ifdef PRINT_STATS
+	FJMPI_Collection_stop();
+	FJMPI_Collection_print("LETKF READ ANAL");
+#endif
 	
 	cycle_transfer_rend(pd, cycle);
 
-	report_get_size(pd, ANAL, ncid);
+//	report_get_size(pd, ANAL, ncid);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
@@ -232,12 +249,20 @@ int write_anal(PD *pd, int cycle)
 
 	cycle_transfer_start(pd);
 
+#ifdef PRINT_STATS
+	FJMPI_Collection_clear();
+	FJMPI_Collection_start();
+#endif
+
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
-
+#ifdef PRINT_STATS
+	FJMPI_Collection_stop();
+	FJMPI_Collection_print("LETKF WRITE ANAL");
+#endif
 	cycle_transfer_wend(pd, cycle);
 	
-	report_put_size(pd, ANAL, ncid);
+//	report_put_size(pd, ANAL, ncid);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);

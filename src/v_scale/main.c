@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 		read_anal(pd, cycle); 
 	}
 
-	output_stat(pd, comp_name);
+//	output_stat(pd, comp_name);
 	finalize_pd(pd);
 	free(pd);
 
