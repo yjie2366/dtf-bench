@@ -298,8 +298,6 @@ int read_anal(PD *pd, int cycle)
 		cycle_file_rend(pd, cycle);
 	}
 
-	report_get_size(pd, ANAL, ncid);
-
 	cycle_file_start(pd);
 
 	ret = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL);
@@ -307,13 +305,14 @@ int read_anal(PD *pd, int cycle)
 
 	cycle_file_rend(pd, cycle);
 
-
 	cycle_transfer_start(pd);
 
 	ret = dtf_transfer(file_path, ncid);
 	check_error(!ret, dtf_transfer);
 
 	cycle_transfer_rend(pd, cycle);
+
+	report_get_size(pd, ANAL, ncid);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);
