@@ -18,10 +18,7 @@ int main(int argc, char **argv)
 	ret = dtf_init(DTF_INIT_FILE, comp_name);
 	check_error(!ret, dtf_init);
 	
-	pd = (struct proc_data *)malloc(sizeof(struct proc_data));
-	check_error(pd, malloc);
-	
-	init_pd(argc, argv, pd);
+	init_pd(argc, argv, &pd);
 	
 	/* Start cycling */
 	for (cycle = 0; cycle < pd->cycles; cycle++) {
@@ -32,7 +29,6 @@ int main(int argc, char **argv)
 
 	output_stat(pd, comp_name);
 	finalize_pd(pd);
-	free(pd);
 
 	ret = dtf_finalize();
 	check_error(!ret, dtf_finalize);

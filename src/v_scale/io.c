@@ -144,7 +144,7 @@ int write_hist(PD *pd, int cycle)
 
 	cycle_transfer_wend(pd, cycle);
 
-	report_put_size(pd, HIST, ncid);
+	//report_put_size(pd, HIST, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -181,7 +181,7 @@ int write_anal(PD *pd, int cycle)
 	
 	cycle_transfer_wend(pd, cycle);
 	
-	report_put_size(pd, ANAL, ncid);
+	//report_put_size(pd, ANAL, ncid);
 
 	ret = ncmpi_buffer_detach(ncid);
 	check_io(ret, ncmpi_buffer_detach);
@@ -312,7 +312,7 @@ int read_anal(PD *pd, int cycle)
 
 	cycle_transfer_rend(pd, cycle);
 
-	report_get_size(pd, ANAL, ncid);
+	//report_get_size(pd, ANAL, ncid);
 
 	ret = ncmpi_close(ncid);
 	check_io(ret, ncmpi_close);

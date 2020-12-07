@@ -48,6 +48,13 @@ for opts; do
 			shift
 			master=$1
 			;;
+		px)
+			shift
+			px=$1
+			;;
+		py)
+			shift
+			py=$1
 	esac
 done
 
@@ -58,13 +65,6 @@ if [ -z "$cycles" ]; then cycles=6; fi
 if [ -z "$member" ]; then member=2; fi
 if [ -z "$master" ]; then master=2; fi
 if [ -z "$num_run" ]; then num_run=1; fi
-
-echo "Executing benchmark with options: "
-echo "Number of Processes: ${np}"
-echo "Grid Size (IMAX*JMAX): ${imax}*${jmax}"
-echo "Number of Ensembles: ${member}"
-echo "Number of Cycles: ${cycles}"
-echo "Number of Master Processes: ${master}"
 
 SCALE_NP=$((np/member))
 if [ ${master} -gt ${SCALE_NP} ];then
@@ -80,17 +80,20 @@ export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
 
-bin_opts="-imax=${imax} -jmax=${jmax} -member=${member} -cycles=${cycles}"
+bin_opts=(-imax=${imax} -jmax=${jmax} -member=${member} -cycles=${cycles})
+if [ -n "$px" -a -n "$py" ]; then
+	bin_opts+=("-px=${px}" "-py=${py}")
+fi
 bin_scale="${top_dir}/bin/scale"
 bin_letkf="${top_dir}/bin/letkf"
 
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
-		mpiexec -n ${np} ${bin_scale} ${bin_opts} : -n ${np} ${bin_letkf} ${bin_opts}
+		mpiexec -n ${np} ${bin_scale} ${bin_opts[@]} : -n ${np} ${bin_letkf} ${bin_opts[@]}
 	else
-		mpiexec -n ${np} ${bin_scale} ${bin_opts} &
-		mpiexec	-n ${np} ${bin_letkf} ${bin_opts}
+		mpiexec -n ${np} ${bin_scale} ${bin_opts[@]} &
+		mpiexec	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	fi
 
 	if [ "$?" -ne 0 ]; then

@@ -9,7 +9,7 @@ if [ ! -e ${log_dir} ]; then
 	mkdir -p ${log_dir} || exit 1
 fi
 
-while getopts "n:i:j:c:m:o:a:u:" OPT; do
+while getopts "n:i:j:c:m:o:a:u:x:y:" OPT; do
 	case ${OPT} in
 	n)
 		nprocs=${OPTARG}
@@ -33,6 +33,12 @@ while getopts "n:i:j:c:m:o:a:u:" OPT; do
 		;;
 	u)
 		args+=("-run ${OPTARG}")
+		;;
+	x)
+		args+=("-px ${OPTARG}")
+		;;
+	y)
+		args+=("-py ${OPTARG}")
 		;;
 	o)
 		target=${OPTARG}

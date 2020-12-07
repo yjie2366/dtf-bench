@@ -525,17 +525,21 @@ static void init_fileinfo(PD *pd)
 	init_file_buffers(pd);
 }
 
-void init_pd(int argc, char **argv, PD *pd)
+void init_pd(int argc, char **argv, PD **p_pd)
 {
 	int ret = 0;
 	int opt, proc_per_ens, color;
-	int part1, part2; // 2D-proc map
+	int px = 0, py = 0; // 2D-proc map
+	PD *pd = NULL;
 
-	if (!pd) {
+	if (!p_pd) {
 		fprintf(stderr, "[ERROR] Invalid address of PD");
 		MPI_Abort(MPI_COMM_WORLD, EINVAL);
 	}
 
+
+	pd = (struct proc_data *)malloc(sizeof(struct proc_data));
+	check_error(pd, malloc);
 	memset(pd, 0, sizeof(PD));
 
 	for (opt = 1; opt < argc; opt++) {
@@ -544,13 +548,16 @@ void init_pd(int argc, char **argv, PD *pd)
 		/* An option */
 		if (argv[opt][0] == '-') {
 			int j = 1;
+			int tmp_len;
 			char *tmp_p = tmp;
 			char key[512] = { 0 };
 			char value[512] = { 0 };
 
 			/* Ignore all the leading dashes */
 			while (argv[opt][j] == '-') j++;
-			memcpy(tmp, argv[opt] + j, strlen(argv[opt]) - j);
+			tmp_len = strlen(argv[opt]) - j;
+			memcpy(tmp, argv[opt] + j, tmp_len);
+			tmp[tmp_len] = '\0';
 			
 			while(*tmp_p != '=') {
 				tmp_p++;
@@ -575,6 +582,12 @@ void init_pd(int argc, char **argv, PD *pd)
 			}
 			else if (!(strcmp(TOLOWER(key), "cycles"))){
 				pd->cycles = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "px"))){
+				px = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "py"))){
+				py = atoi(value);
 			}
 			else {
 				fprintf(stderr, "[ERROR] Unknown options! %s\n", tmp);
@@ -608,19 +621,31 @@ void init_pd(int argc, char **argv, PD *pd)
 	MPI_Comm_rank(pd->ens_comm, &pd->ens_rank);
 	MPI_Comm_size(pd->ens_comm, &pd->ens_size);
 	
-	part1 = upper(sqrt(pd->ens_size));
-	while (pd->ens_size % part1) part1++;
-	part2 = pd->ens_size / part1;
+	if (!px || !py) {
+		px = upper(sqrt(pd->ens_size));
+		while (pd->ens_size % px) px++;
+		py = pd->ens_size / px;
+	}
+	else if ((px * py) != pd->ens_size) {
+		fprintf(stderr, "[ERROR] px [%d] * py [%d] is not equal to"
+			" #process %d in each ensemble\n", px, py, pd->ens_size);
+		MPI_Abort(MPI_COMM_WORLD, EINVAL);
+	}
 
-	pd->proc_num_x = part1;
-	pd->proc_num_y = part2;
+	pd->proc_num_x = px;
+	pd->proc_num_y = py;
 	pd->proc_rank_x = pd->ens_rank % pd->proc_num_x;
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
-	if (!pd->world_rank)
-		fprintf(stdout, "Process Topologies Info: X * Y: %d * %d\n",
-				pd->proc_num_x, pd->proc_num_y);
-
+	if (!pd->world_rank) {
+		fprintf(stdout, "Number of Processes: %d\n"
+				"Grid Size (IMAX * JMAX): %ld * %ld\n"
+				"Number of Ensembles: %d\n"
+				"Number of Cycles: %d\n"
+				"Process Coordinate (X*Y): %d * %d\n",
+				pd->world_size, pd->imax, pd->jmax, pd->num_ens,
+				pd->cycles, pd->proc_num_x, pd->proc_num_y);
+	}
 	init_fileinfo(pd);
 
 	/*
@@ -640,6 +665,8 @@ void init_pd(int argc, char **argv, PD *pd)
 	t->cycle_file_wtime = t->cycle_file_rtime + pd->cycles;
 	t->trans_checkpoint = 0.0;
 	t->file_checkpoint = 0.0;
+
+	*p_pd = pd;
 }
 
 static int free_datatype(MPI_Datatype *type)
@@ -703,6 +730,7 @@ int finalize_pd(PD *pd)
 	if (pd->time.cycle_transfer_time) free(pd->time.cycle_transfer_time);
 	MPI_Comm_free(&pd->ens_comm);
 	free(pd->files);
+	free(pd);
 
 	return 0;
 }
