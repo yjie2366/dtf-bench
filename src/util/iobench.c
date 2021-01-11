@@ -127,6 +127,7 @@ MPI_Offset get_dim_length(struct file_info *file, char *dim_name)
 
 	return -1;
 }
+
 static void init_iovars(PD *pd)
 {
 	int i;
@@ -391,7 +392,7 @@ static void init_fileinfo(PD *pd)
 	int len_path;
 
 	/* Get path where data files will be stored */
-	if ((env = getenv("INIT_DATA_PATH")) != NULL) {
+	if ((env = getenv("DATA_PATH")) != NULL) {
 		memcpy(data_path, env, MAX_PATH_LEN);
 	}
 	else {
@@ -409,37 +410,21 @@ static void init_fileinfo(PD *pd)
 	ret = create_dirs(data_path);
 	check_error(!ret, create_dirs);
 
-	for (i = 0; i < NUM_ANALDIMS; i++) {
-		if ((strchr(anal_dims[i].name, 'X')) || (strchr(anal_dims[i].name, 'x'))) {
-			anal_dims[i].length += (pd->imax * pd->proc_num_x);
-		}
-		else if ((strchr(anal_dims[i].name, 'Y')) || (strchr(anal_dims[i].name, 'y'))) {
-			anal_dims[i].length += (pd->jmax * pd->proc_num_y);
-		}
-
-		if ((strchr(hist_dims[i].name, 'X')) || (strchr(hist_dims[i].name, 'x'))) {
-			hist_dims[i].length += (pd->imax * pd->proc_num_x);
-		}
-		else if ((strchr(hist_dims[i].name, 'Y')) || (strchr(hist_dims[i].name, 'y'))) {
-			hist_dims[i].length += (pd->jmax * pd->proc_num_y);
-		}
-	}
-
+	/* Init file info */
 	pd->files = (struct file_info *)calloc(pd->nfiles, sizeof(struct file_info));
 	check_error(pd->files, calloc);
 
-	/* Init file info */
 	for (i = 0; i < pd->nfiles; i++) {
 		int j;
 		FILE *fp = NULL;
 		struct file_info *file = &pd->files[i];
-		char filename[MAX_PATH_LEN] = { 0 };
+		char info_fname[MAX_PATH_LEN] = { 0 };
 		struct dim_pair *src_dim = NULL;
 
 		file->nvars = 0;
 
 		if (i == ANAL) {
-			strcpy(filename, INFO_PATH(anal));
+			strcpy(info_fname, INFO_PATH(anal));
 			src_dim = anal_dims;
 			file->ndims = NUM_ANALDIMS;
 			file->nvars = NUM_ANALVARS;
@@ -447,7 +432,7 @@ static void init_fileinfo(PD *pd)
 			file->ndata_vars = NUM_ANAL_DATA_VARS;
 		}
 		else if (i == HIST) {
-			strcpy(filename, INFO_PATH(hist));
+			strcpy(info_fname, INFO_PATH(hist));
 			src_dim = hist_dims;
 			file->ndims = NUM_HISTDIMS;
 			file->nvars = NUM_HISTVARS;
@@ -471,7 +456,7 @@ static void init_fileinfo(PD *pd)
 		check_error(file->vars, malloc);
 		memset(file->vars, 0, sizeof(file->nvars * sizeof(struct var_pair)));
 
-		fp = fopen(filename, "r");
+		fp = fopen(info_fname, "r");
 		check_error(fp, fopen);
 	
 		/* get variable name, type, ndims and mapped dims name */
@@ -527,7 +512,7 @@ static void init_fileinfo(PD *pd)
 
 void init_pd(int argc, char **argv, PD **p_pd)
 {
-	int ret = 0;
+	int i, ret = 0;
 	int opt, proc_per_ens, color;
 	int px = 0, py = 0; // 2D-proc map
 	PD *pd = NULL;
@@ -536,7 +521,6 @@ void init_pd(int argc, char **argv, PD **p_pd)
 		fprintf(stderr, "[ERROR] Invalid address of PD");
 		MPI_Abort(MPI_COMM_WORLD, EINVAL);
 	}
-
 
 	pd = (struct proc_data *)malloc(sizeof(struct proc_data));
 	check_error(pd, malloc);
@@ -638,20 +622,35 @@ void init_pd(int argc, char **argv, PD **p_pd)
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
 	if (!pd->world_rank) {
-		fprintf(stdout, "Number of Processes: %d\n"
-				"Grid Size (IMAX * JMAX): %ld * %ld\n"
-				"Number of Ensembles: %d\n"
-				"Number of Cycles: %d\n"
-				"Process Coordinate (X*Y): %d * %d\n",
-				pd->world_size, pd->imax, pd->jmax, pd->num_ens,
+		fprintf(stdout, "%s: Number of Processes: %d Grid Size (IMAX * JMAX): %ld * %ld\n"
+				"\tNumber of Ensembles: %d Number of Cycles: %d\n"
+				"\tProcess Coordinate (X*Y): %d * %d\n",
+				comp_name, pd->world_size, pd->imax, pd->jmax, pd->num_ens,
 				pd->cycles, pd->proc_num_x, pd->proc_num_y);
 	}
+
+	/* Add imax and jmax to length of each PnetCDF variables */
+	for (i = 0; i < NUM_ANALDIMS; i++) {
+		if ((strchr(anal_dims[i].name, 'X')) || (strchr(anal_dims[i].name, 'x'))) {
+			anal_dims[i].length += (pd->imax * pd->proc_num_x);
+		}
+		else if ((strchr(anal_dims[i].name, 'Y')) || (strchr(anal_dims[i].name, 'y'))) {
+			anal_dims[i].length += (pd->jmax * pd->proc_num_y);
+		}
+
+		if ((strchr(hist_dims[i].name, 'X')) || (strchr(hist_dims[i].name, 'x'))) {
+			hist_dims[i].length += (pd->imax * pd->proc_num_x);
+		}
+		else if ((strchr(hist_dims[i].name, 'Y')) || (strchr(hist_dims[i].name, 'y'))) {
+			hist_dims[i].length += (pd->jmax * pd->proc_num_y);
+		}
+	}
+
 	init_fileinfo(pd);
 
 	/*
 	 Include the cycle 0, which needs to initialize data structs
-	 allocate memory for three regions, which are for time of RW
-	 time of R and time of W
+	 allocate memory for time of RW, time of R and time of W
 	*/
 	struct timing *t = &pd->time;
 	t->cycle_transfer_time = (double *) malloc(sizeof(double) * pd->cycles * 6);

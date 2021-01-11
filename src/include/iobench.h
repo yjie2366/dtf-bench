@@ -31,7 +31,7 @@ struct io_vars {
 struct data_buf {
 	// which variable this buffer belongs to
 	int varid;
-	// for getting the layout of shape and idxes
+	// For getting the layout of shape and idxes
 	int ndims;
 	// Including HALO areas
 	int nelems;
@@ -68,7 +68,7 @@ struct file_info {
 	struct data_buf *var_write_buffers;
 	struct dim_pair *dims;
 	struct var_pair *vars;
-	char (*file_names)[NC_MAX_NAME+1];  // path to output file for each cycle
+	char (*file_names)[NC_MAX_NAME+1];  // Path to output file for each cycle
 };
 
 struct timing {

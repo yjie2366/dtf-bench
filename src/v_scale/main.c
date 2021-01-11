@@ -14,7 +14,6 @@ int main(int argc, char **argv)
 	int cycle = 0, ret;
 	PD *pd = NULL;
 
-	/* INITIALIZATION */
 	MPI_Init(&argc, &argv);
 	ret = dtf_init(DTF_INIT_FILE, comp_name);
 	check_error(!ret, dtf_init);
