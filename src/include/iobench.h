@@ -23,10 +23,15 @@ struct var_pair {
 	char name[64];		// READ FROM FILE
 };
 
+struct io_vars {
+	char name[64];
+	int idx;
+};
+
 struct data_buf {
 	// which variable this buffer belongs to
 	int varid;
-	// for getting the layout of shape and idxes
+	// For getting the layout of shape and idxes
 	int ndims;
 	// Including HALO areas
 	int nelems;
@@ -41,7 +46,8 @@ struct data_buf {
 	 */
 	MPI_Offset *shape;
 
-	/* region without halo in data buffer
+	/* NOTE: this region is not used for perf branch
+	 * region without halo in data buffer
 	 *
 	 * [0 ... ndims-1] = start_idxes
 	 * [ndims ... ndims*2-1] = end_idxes
@@ -56,14 +62,13 @@ struct file_info {
 	int nvars;     // Total number of PnetCDF variables
 	int nassct_coords;  // Number of associated coordinate variables
 	int ndata_vars;     // Number of data variables
-	int naxes_buf;  // Number of axes buffer
-	int nvar_read_buf;   // Number of data read buffer
-	int nvar_write_buf;  // Number of data write buffer
-	struct data_buf *axes_buffer;
+	//struct data_buf *axes_buffer;
+	MPI_Offset databuf_sz; // for bput_*
 	struct data_buf *var_read_buffers;
 	struct data_buf *var_write_buffers;
 	struct dim_pair *dims;
 	struct var_pair *vars;
+	char (*file_names)[NC_MAX_NAME+1];  // Path to output file for each cycle
 };
 
 struct timing {

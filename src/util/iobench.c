@@ -1,6 +1,8 @@
 #include "util.h"
 #include <math.h>
 
+extern char *comp_name;
+
 struct dim_pair anal_dims[NUM_ANALDIMS] = {
 	{ "z"   , KMAX, 	-1 },
 	{ "zh"  , KMAX+1, 	-1 },
@@ -75,127 +77,354 @@ struct dim_pair hist_dims[NUM_HISTDIMS] = {
 	{ "nv"	, 2,		-1 }
 };
 
-/*
-MPI_Datatype subarray_type[NUM_DATATYPE] = {
-	[0 ... NUM_DATATYPE-1] = MPI_DATATYPE_NULL
+/* ANAL vars SCALE read and LETKF read/write */
+struct io_vars anal_vars[NUM_IOVARS_ANAL] = {
+	{ "DENS",	-1 },
+	{ "MOMX",	-1 },
+	{ "MOMY",	-1 }, 
+	{ "MOMZ",	-1 },
+	{ "RHOT",	-1 },
+	{ "QV",		-1 }, 
+	{ "QC",		-1 },
+	{ "QR",		-1 },
+	{ "QI", 	-1 },
+	{ "QS", 	-1 },
+	{ "QG", 	-1 }
 };
 
-static void init_subarray_types(PD *pd)
+/* HIST vars LETKF read */
+struct io_vars hist_vars[NUM_IOVARS_HIST] = {
+	{ "U",		-1 }, 
+	{ "V", 		-1 },
+	{ "W", 		-1 },
+	{ "T", 		-1 },
+	{ "PRES",	-1 },
+	{ "QV", 	-1 },
+	{ "QC",		-1 },
+	{ "QR",		-1 },
+	{ "QI",		-1 },
+	{ "QS",		-1 },
+	{ "QG",		-1 },
+	{ "RH",		-1 },
+	{ "height", 	-1 },
+	{ "topo",	-1 },
+	{ "SFC_PRES",	-1 },
+	{ "PREC",	-1 },
+	{ "U10",	-1 },
+	{ "V10",	-1 },
+	{ "T2",		-1 },
+	{ "Q2",		-1 }
+};
+
+MPI_Offset get_dim_length(struct file_info *file, char *dim_name)
+{
+	int i, ndims = file->ndims;
+
+	for (i = 0; i < ndims; i++) {
+		struct dim_pair *dim = &file->dims[i];
+		if (!strcmp(dim_name, dim->name)) return dim->length;
+	}
+
+	return -1;
+}
+
+static void init_iovars(PD *pd)
 {
 	int i;
-	int order = MPI_ORDER_C;
+	struct file_info *file_anal = &pd->files[ANAL];
+	struct file_info *file_hist = &pd->files[HIST];
 
-	for (i = 0; i < NUM_DATATYPE; i++) {
-		int ndims = 3;
-		int size[3] = { 0 };
-		int sub_size[3] = { 0 };
-		int sub_off[3] = { 0 };
-		MPI_Datatype *type = &subarray_type[i];
+	for (i = 0; i < NUM_IOVARS_ANAL; i++) {
+		int idx;
+		
+		idx = find_var(file_anal, anal_vars[i].name);
+		check_error(idx >= 0, find_var);
+		anal_vars[i].idx = idx;
+	}
 
-		switch (i) {
-		case XY:
-			*type = MPI_FLOAT;
-			continue;
-		case ZXY2:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
-			size[2] = KA;
-			sub_size[0] = JMAX(pd);
-			sub_size[1] = IMAX(pd);
-			sub_size[2] = KMAX;
-			sub_off[0] = JHALO;
-			sub_off[1] = IHALO;
-			sub_off[2] = KS;
-			break;
-		case ZHXY2:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
-			size[2] = KA;
-			sub_size[0] = JMAX(pd);
-			sub_size[1] = IMAX(pd);
-			sub_size[2] = KMAX;
-			sub_off[0] = JHALO;
-			sub_off[1] = IHALO;
-			sub_off[2] = KS - 1;
-			break;
-		case OCEAN:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
-			size[2] = OKMAX;
-			sub_size[0] = JA(pd);
-			sub_size[1] = IA(pd);
-			sub_size[2] = OKMAX;
-			sub_off[0] = 0;
-			sub_off[1] = 0;
-			sub_off[2] = OKS;
-			break;
-		case LAND:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
-			size[2] = LKMAX;
-			sub_size[0] = JA(pd);
-			sub_size[1] = IA(pd);
-			sub_size[2] = LKMAX;
-			sub_off[0] = 0;
-			sub_off[1] = 0;
-			sub_off[2] = LKS;
-			break;
-		case URBAN:
-			size[0] = JA(pd);
-			size[1] = IA(pd);
-			size[2] = UKMAX;
-			sub_size[0] = JA(pd);
-			sub_size[1] = IA(pd);
-			sub_size[2] = UKMAX;
-			sub_off[0] = 0;
-			sub_off[1] = 0;
-			sub_off[2] = UKS;
-			break;
-		default:
-			fprintf(stderr, "[ERROR] Invalid dim type\n");
-			MPI_Abort(MPI_COMM_WORLD, EINVAL);
-		}
-		MPI_Type_create_subarray(ndims, size, sub_size, sub_off, order, MPI_FLOAT, type);
-		MPI_Type_commit(type);
+	for (i = 0; i < NUM_IOVARS_HIST; i++) {
+		int idx;
+		
+		idx = find_var(file_hist, hist_vars[i].name);
+		check_error(idx >= 0, find_var);
+		hist_vars[i].idx = idx;
 	}
 }
-*/
+
+/* Only initiate write buffers */
+static void init_file_buffers(PD *pd)
+{
+	int fi;
+
+	init_iovars(pd);
+
+	for (fi = 0; fi < pd->nfiles; fi++) {
+		int i;
+		struct file_info *file = &pd->files[fi];
+		struct data_buf *var_read_buffers, *var_write_buffers;
+		int num_vars = file->nvars;
+
+		var_read_buffers = (struct data_buf *)malloc(sizeof(struct data_buf) * num_vars);
+		check_error(var_read_buffers, malloc);
+		memset(var_read_buffers, 0, sizeof(struct data_buf) * num_vars);
+
+		var_write_buffers = (struct data_buf *)malloc(sizeof(struct data_buf) * num_vars);
+		check_error(var_write_buffers, malloc);
+		memset(var_write_buffers, 0, sizeof(struct data_buf) * num_vars);
+
+		/* HIST+ANAL Write buffers: All the variables*/
+		if (strstr(comp_name, "scale")) {
+			for (i = 0; i < file->nvars; i++) {
+				struct var_pair *var = &file->vars[i];
+				struct data_buf *wbuf = &var_write_buffers[i];
+				int ndims = var->ndims;
+				MPI_Offset *shape = NULL;
+				float *data = NULL;
+				MPI_Offset nelems = 1;
+				int varid = i;
+
+				if (i < NUM_AXIS_VARS) {
+					MPI_Offset dim_len = get_dim_length(file, var->dim_name[0]);
+					MPI_Offset start = 0, count = 0;
+					int j;
+
+					if (pd->proc_rank_x == 0 && (strchr(var->dim_name[0], 'y'))) {
+						if (fi == HIST) {
+							if (strchr(var->dim_name[0], 'h')) {
+								start = SYH_hist(pd);
+								count = CYH_hist(pd);
+							}
+							else {
+								start = SY_hist(pd);
+								count = JMAX(pd);
+							}
+						}
+						else if (fi == ANAL) {
+							start = JSGA(pd);
+							count = JEB(pd) - JSB(pd) + 1;
+						}
+					}
+
+					if (pd->proc_rank_y == 0 && (strchr(var->dim_name[0], 'x'))) {
+						if (fi == HIST) {
+							if (strchr(var->dim_name[0], 'h')) {
+								start = SXH_hist(pd);
+								count = CXH_hist(pd);
+							}
+							else {
+								start = SX_hist(pd);
+								count = IMAX(pd);
+							}
+						} // ANAL
+						else if (fi == ANAL) {
+							start = ISGA(pd);
+							count = IEB(pd) - ISB(pd) + 1;
+						}
+					}
+
+					// z, Z, X, and Y axes
+					if (pd->ens_rank == 0) {
+						if (    strchr(var->dim_name[0], 'z') ||
+								strchr(var->dim_name[0], 'Z') ||
+								strchr(var->dim_name[0], 'X') ||
+								strchr(var->dim_name[0], 'Y')	) {
+							start = 0;
+							count = dim_len;
+						}
+					}
+
+					nelems = count;
+
+					if (count) {
+						shape = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
+						check_error(shape, malloc);
+
+						shape[0] = start;
+						shape[1] = count;
+
+						data = (float *)malloc(sizeof(float) * count);
+						check_error(data, malloc);
+						memset(data, 0, sizeof(float) * count);
+						
+						for (j = 0; j < count; j++)
+							data[j] = i + 1;
+					}
+				}
+				else {
+					int j;
+					MPI_Offset *start = NULL, *count = NULL;
+
+					/* time* vars in HIST are ignored */
+					if (strstr(var->name, "time")) {
+						wbuf->data = NULL;
+						wbuf->shape = NULL;
+						continue;
+					}
+
+					shape = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
+					check_error(shape, malloc);
+					memset(shape, 0, sizeof(MPI_Offset) * ndims * 2);
+
+					start = shape;
+					count = start + ndims;
+
+					for (j = 0; j < ndims; j++) {
+						if (strstr(var->dim_name[j], "time")) {
+							start[j] = 0;
+							count[j] = 1;
+						}
+						else if (strchr(var->dim_name[j], 'z')) {
+							start[j] = 0;
+							count[j] = get_dim_length(file, var->dim_name[j]);
+						}
+						else if (strchr(var->dim_name[j], 'y')) {
+							if (fi == ANAL) {
+								start[j] = JSGA(pd);
+								count[j] = JEB(pd) - JSB(pd) + 1;
+							}
+							else {
+								if (strchr(var->dim_name[j], 'h')) {
+									start[j] = SYH_hist(pd);
+									count[j] = CYH_hist(pd);
+								}
+								else {
+									start[j] = SY_hist(pd);
+									count[j] = JMAX(pd);
+								}
+							}
+						}
+						else if (strchr(var->dim_name[j], 'x')) {
+							if (fi == ANAL) {
+								start[j] = ISGA(pd);
+								count[j] = IEB(pd) - ISB(pd) + 1;
+							}
+							else {
+								if (strchr(var->dim_name[j], 'h')) {
+									start[j] = SXH_hist(pd);
+									count[j] = CXH_hist(pd);
+								}
+								else {
+									start[j] = SX_hist(pd);
+									count[j] = IMAX(pd);
+								}
+							}
+						}
+						nelems *= count[j];
+					}
+
+					data = (float *)malloc(sizeof(float) * nelems);
+					check_error(data, malloc);
+					memset(data, 0, sizeof(float) * nelems);
+
+					for (j = 0; j < nelems; j++)
+						data[j] = i + 1;
+				}
+
+				wbuf->data = data;
+				wbuf->shape = shape;
+				wbuf->ndims = ndims;
+				wbuf->varid = varid;
+				wbuf->nelems = nelems;
+			}
+		}
+		/* LETKF write buffers: only anal_vars */
+		else if (strstr(comp_name, "letkf")) {
+			for (i = 0; i < NUM_IOVARS_ANAL; i++) {
+				int j;
+				int idx = anal_vars[i].idx;
+				struct var_pair *var = &file->vars[idx];
+				struct data_buf *wbuf = &var_write_buffers[idx];
+				int ndims = var->ndims;
+				MPI_Offset *start, *count;
+				float *data = NULL;
+				MPI_Offset nelems = 1;
+				int varid = idx;
+
+				start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
+				check_error(start, malloc);
+				count = start + ndims;
+
+				for (j = 0; j < ndims; j++) {
+					if (strchr(var->dim_name[j], 'z')) {
+						start[j] = 0;
+						count[j] = KMAX;
+					}
+					else if (strchr(var->dim_name[j], 'y')) {
+						start[j] = JS_inG(pd);
+						count[j] = JMAX(pd);
+					}
+					else if (strchr(var->dim_name[j], 'x')) {
+						start[j] = IS_inG(pd);
+						count[j] = IMAX(pd);
+					}
+
+					nelems *= count[j];
+				}
+
+				data = (float *)malloc(sizeof(float) * nelems);
+				check_error(data, malloc);
+				memset(data, 0, sizeof(float) * nelems);
+				for (j = 0; j < nelems; j++)
+					data[j] = idx + 1;
+
+				wbuf->data = data;
+				wbuf->shape = start;
+				wbuf->ndims = ndims;
+				wbuf->varid = varid;
+				wbuf->nelems = nelems;
+			}
+		}
+		else {
+			fprintf(stderr, "[ERROR] Invalid component name\n");
+			MPI_Abort(MPI_COMM_WORLD, EINVAL);
+		}
+
+		file->var_read_buffers = var_read_buffers;
+		file->var_write_buffers = var_write_buffers;
+	}
+}
 
 static void init_fileinfo(PD *pd)
 {
 	int ret, i;
+	char data_path[MAX_PATH_LEN] = { 0 };
+	char *env = NULL;
+	int len_path;
 
-	for (i = 0; i < NUM_ANALDIMS; i++) {
-		if ((strchr(anal_dims[i].name, 'X')) || (strchr(anal_dims[i].name, 'x'))) {
-			anal_dims[i].length += (pd->imax * pd->proc_num_x);
-		}
-		else if ((strchr(anal_dims[i].name, 'Y')) || (strchr(anal_dims[i].name, 'y'))) {
-			anal_dims[i].length += (pd->jmax * pd->proc_num_y);
-		}
-
-		if ((strchr(hist_dims[i].name, 'X')) || (strchr(hist_dims[i].name, 'x'))) {
-			hist_dims[i].length += (pd->imax * pd->proc_num_x);
-		}
-		else if ((strchr(hist_dims[i].name, 'Y')) || (strchr(hist_dims[i].name, 'y'))) {
-			hist_dims[i].length += (pd->jmax * pd->proc_num_y);
-		}
+	/* Get path where data files will be stored */
+	if ((env = getenv("DATA_PATH")) != NULL) {
+		memcpy(data_path, env, MAX_PATH_LEN);
+	}
+	else {
+		memcpy(data_path, DATA_PATH, MAX_PATH_LEN);
 	}
 
+	/* Add trailing slash behind path */
+	len_path = strlen(data_path);
+	if(data_path[len_path-1] != '/' && len_path < (MAX_PATH_LEN-1)) {
+		data_path[len_path++] = '/';
+		data_path[len_path] = '\0';
+	}
+
+	/* Create data folder if it does not exist */
+	ret = create_dirs(data_path);
+	check_error(!ret, create_dirs);
+
+	/* Init file info */
 	pd->files = (struct file_info *)calloc(pd->nfiles, sizeof(struct file_info));
 	check_error(pd->files, calloc);
 
-	/* Init file info */
 	for (i = 0; i < pd->nfiles; i++) {
 		int j;
 		FILE *fp = NULL;
 		struct file_info *file = &pd->files[i];
-		char filename[MAX_PATH_LEN] = { 0 };
+		char info_fname[MAX_PATH_LEN] = { 0 };
 		struct dim_pair *src_dim = NULL;
 
 		file->nvars = 0;
 
 		if (i == ANAL) {
-			strcpy(filename, INFO_PATH(anal));
+			strcpy(info_fname, INFO_PATH(anal));
 			src_dim = anal_dims;
 			file->ndims = NUM_ANALDIMS;
 			file->nvars = NUM_ANALVARS;
@@ -203,7 +432,7 @@ static void init_fileinfo(PD *pd)
 			file->ndata_vars = NUM_ANAL_DATA_VARS;
 		}
 		else if (i == HIST) {
-			strcpy(filename, INFO_PATH(hist));
+			strcpy(info_fname, INFO_PATH(hist));
 			src_dim = hist_dims;
 			file->ndims = NUM_HISTDIMS;
 			file->nvars = NUM_HISTVARS;
@@ -227,7 +456,7 @@ static void init_fileinfo(PD *pd)
 		check_error(file->vars, malloc);
 		memset(file->vars, 0, sizeof(file->nvars * sizeof(struct var_pair)));
 
-		fp = fopen(filename, "r");
+		fp = fopen(info_fname, "r");
 		check_error(fp, fopen);
 	
 		/* get variable name, type, ndims and mapped dims name */
@@ -249,32 +478,52 @@ static void init_fileinfo(PD *pd)
 					(NC_MAX_NAME + 1) * num_var_dims);
 			check_error(var->dim_name, malloc);
 			memset(var->dim_name, 0, (NC_MAX_NAME+1)*num_var_dims);
-
-			var->dims = (int *)calloc(num_var_dims, sizeof(int));
-			check_error(var->dims, calloc);
-
+			
 			for (iter = 0; iter < num_var_dims; iter++) {
 				ret = fscanf(fp, "%s", var->dim_name[iter]);
 				check_error(ret == 1, fscanf);
 			}
+
+			/* Will be filled by pnetcdf later */
+			var->dims = (int *)calloc(num_var_dims, sizeof(int));
+			check_error(var->dims, calloc);
+
 		}
 
 		ret = fclose(fp);
 		check_error(ret != EOF, fclose);
+
+		/* calculate data buffer size for SCALE pnetcdf bput_*() */
+		file->databuf_sz = get_databuf_size(pd, i);
+		check_error(file->databuf_sz > 0, get_databuf_size);
+
+		/* Fill pnetcdf file name for each cycle */
+		file->file_names = (char (*)[NC_MAX_NAME+1])malloc((NC_MAX_NAME+1)*pd->cycles);
+		check_error(file->file_names, malloc);
+
+		char *suffix = (i == ANAL) ? ".anal.nc" : ".hist.nc";
+		for (j = 0; j < pd->cycles; j++) {
+			fmt_filename(j, pd->ens_id, 6, data_path, suffix, file->file_names[j]);
+		}
 	}
+
+	init_file_buffers(pd);
 }
 
-void init_pd(int argc, char **argv, PD *pd)
+void init_pd(int argc, char **argv, PD **p_pd)
 {
-	int ret = 0;
+	int i, ret = 0;
 	int opt, proc_per_ens, color;
-	int part1, part2; // 2D-proc map
+	int px = 0, py = 0; // 2D-proc map
+	PD *pd = NULL;
 
-	if (!pd) {
+	if (!p_pd) {
 		fprintf(stderr, "[ERROR] Invalid address of PD");
 		MPI_Abort(MPI_COMM_WORLD, EINVAL);
 	}
 
+	pd = (struct proc_data *)malloc(sizeof(struct proc_data));
+	check_error(pd, malloc);
 	memset(pd, 0, sizeof(PD));
 
 	for (opt = 1; opt < argc; opt++) {
@@ -283,13 +532,16 @@ void init_pd(int argc, char **argv, PD *pd)
 		/* An option */
 		if (argv[opt][0] == '-') {
 			int j = 1;
+			int tmp_len;
 			char *tmp_p = tmp;
 			char key[512] = { 0 };
 			char value[512] = { 0 };
 
 			/* Ignore all the leading dashes */
 			while (argv[opt][j] == '-') j++;
-			memcpy(tmp, argv[opt] + j, strlen(argv[opt]) - j);
+			tmp_len = strlen(argv[opt]) - j;
+			memcpy(tmp, argv[opt] + j, tmp_len);
+			tmp[tmp_len] = '\0';
 			
 			while(*tmp_p != '=') {
 				tmp_p++;
@@ -314,6 +566,12 @@ void init_pd(int argc, char **argv, PD *pd)
 			}
 			else if (!(strcmp(TOLOWER(key), "cycles"))){
 				pd->cycles = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "px"))){
+				px = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "py"))){
+				py = atoi(value);
 			}
 			else {
 				fprintf(stderr, "[ERROR] Unknown options! %s\n", tmp);
@@ -347,25 +605,52 @@ void init_pd(int argc, char **argv, PD *pd)
 	MPI_Comm_rank(pd->ens_comm, &pd->ens_rank);
 	MPI_Comm_size(pd->ens_comm, &pd->ens_size);
 	
-	part1 = upper(sqrt(pd->ens_size));
-	while (pd->ens_size % part1) part1++;
-	part2 = pd->ens_size / part1;
+	if (!px || !py) {
+		px = upper(sqrt(pd->ens_size));
+		while (pd->ens_size % px) px++;
+		py = pd->ens_size / px;
+	}
+	else if ((px * py) != pd->ens_size) {
+		fprintf(stderr, "[ERROR] px [%d] * py [%d] is not equal to"
+			" #process %d in each ensemble\n", px, py, pd->ens_size);
+		MPI_Abort(MPI_COMM_WORLD, EINVAL);
+	}
 
-	pd->proc_num_x = part1;
-	pd->proc_num_y = part2;
+	pd->proc_num_x = px;
+	pd->proc_num_y = py;
 	pd->proc_rank_x = pd->ens_rank % pd->proc_num_x;
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
-	if (!pd->world_rank)
-		fprintf(stdout, "Process Topologies Info: X * Y: %d * %d\n",
-				pd->proc_num_x, pd->proc_num_y);
+	if (!pd->world_rank) {
+		fprintf(stdout, "%s: Number of Processes: %d Grid Size (IMAX * JMAX): %ld * %ld\n"
+				"\tNumber of Ensembles: %d Number of Cycles: %d\n"
+				"\tProcess Coordinate (X*Y): %d * %d\n",
+				comp_name, pd->world_size, pd->imax, pd->jmax, pd->num_ens,
+				pd->cycles, pd->proc_num_x, pd->proc_num_y);
+	}
+
+	/* Add imax and jmax to length of each PnetCDF variables */
+	for (i = 0; i < NUM_ANALDIMS; i++) {
+		if ((strchr(anal_dims[i].name, 'X')) || (strchr(anal_dims[i].name, 'x'))) {
+			anal_dims[i].length += (pd->imax * pd->proc_num_x);
+		}
+		else if ((strchr(anal_dims[i].name, 'Y')) || (strchr(anal_dims[i].name, 'y'))) {
+			anal_dims[i].length += (pd->jmax * pd->proc_num_y);
+		}
+
+		if ((strchr(hist_dims[i].name, 'X')) || (strchr(hist_dims[i].name, 'x'))) {
+			hist_dims[i].length += (pd->imax * pd->proc_num_x);
+		}
+		else if ((strchr(hist_dims[i].name, 'Y')) || (strchr(hist_dims[i].name, 'y'))) {
+			hist_dims[i].length += (pd->jmax * pd->proc_num_y);
+		}
+	}
 
 	init_fileinfo(pd);
 
 	/*
 	 Include the cycle 0, which needs to initialize data structs
-	 allocate memory for three regions, which are for time of RW
-	 time of R and time of W
+	 allocate memory for time of RW, time of R and time of W
 	*/
 	struct timing *t = &pd->time;
 	t->cycle_transfer_time = (double *) malloc(sizeof(double) * pd->cycles * 6);
@@ -379,6 +664,8 @@ void init_pd(int argc, char **argv, PD *pd)
 	t->cycle_file_wtime = t->cycle_file_rtime + pd->cycles;
 	t->trans_checkpoint = 0.0;
 	t->file_checkpoint = 0.0;
+
+	*p_pd = pd;
 }
 
 static int free_datatype(MPI_Datatype *type)
@@ -407,38 +694,27 @@ int finalize_pd(PD *pd)
 		int j;
 		struct file_info *file = &pd->files[i];
 
-		if (file->axes_buffer) {
-			for (j = 0; j < (file->naxes_buf); j++) {
-				struct data_buf *buf = &file->axes_buffer[j];
-				if (buf->shape) free(buf->shape);
-				if (buf->data) free(buf->data);
-				free_datatype(&buf->dtype);
-			}
-			free(file->axes_buffer);
-		}
-
 		if (file->var_write_buffers) {
-			for (j = 0; j < file->nvar_write_buf; j++) {
+			for (j = 0; j < file->nvars; j++) {
 				struct data_buf *buf = &file->var_write_buffers[j];
 				if (buf->shape) free(buf->shape);
 				if (buf->data) free(buf->data);
-				free_datatype(&buf->dtype);
+				if (buf->ntypes == 1) free_datatype(&buf->dtype);
 			}
 			free(file->var_write_buffers);
 		}
 		
 		if (file->var_read_buffers) {
-			for (j = 0; j < file->nvar_read_buf; j++) {
+			for (j = 0; j < file->nvars; j++) {
 				struct data_buf *buf = &file->var_read_buffers[j];
 				if (buf->shape) free(buf->shape);
 				if (buf->data) free(buf->data);
-				free_datatype(&buf->dtype);
+				if (buf->ntypes == 1) free_datatype(&buf->dtype);
 			}
 			free(file->var_read_buffers);
 		}
 
 		if (file->dims) free(file->dims);
-		
 		if (file->vars) {
 			for (j = 0; j < file->nvars; j++) {
 				struct var_pair *var = &file->vars[j];
@@ -447,11 +723,13 @@ int finalize_pd(PD *pd)
 			}
 			free(file->vars);
 		}
+		if (file->file_names) free(file->file_names);
 	}
 
 	if (pd->time.cycle_transfer_time) free(pd->time.cycle_transfer_time);
 	MPI_Comm_free(&pd->ens_comm);
 	free(pd->files);
+	free(pd);
 
 	return 0;
 }

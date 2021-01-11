@@ -63,7 +63,7 @@ static inline int upper(double d)
 	else return i_d + 1;
 }
 
-void init_pd(int argc, char **argv, PD *pd);
+void init_pd(int argc, char **argv, PD **pd);
 int finalize_pd(PD *pd);
 void output_stat(PD *pd, char *comp_name);
 

@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-
+#include <dirent.h>
 #include "util.h"
 
 extern struct dim_pair anal_dims[];
@@ -179,7 +179,8 @@ int create_dirs(char *path)
 	int offset = 0;
 	char tmp[MAX_PATH_LEN] = { 0 };
 	char *pt = NULL;
-	
+	DIR *d = NULL;
+
 	if (strlen(path) >= MAX_PATH_LEN) {
 		fprintf(stderr, "[ERROR] %s Path %s is too long to process.\n", __func__, path);
 		errno = EINVAL;
@@ -187,6 +188,14 @@ int create_dirs(char *path)
 		return errno;
 	}
 	
+	/* If directory exists, return immediately */
+	d = opendir(path);
+	if (d) {
+		closedir(d);
+		return 0;
+	}
+
+	/* Otherwise, mkdir -p */
 	memcpy(tmp, path, strlen(path)+1);
 
 	// Ignore leading slashes
@@ -237,6 +246,7 @@ void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix,
 	}
 
 	memcpy(name, tmp, strlen(tmp));
+	name[off] = '\0';
 }
 
 MPI_Offset get_databuf_size(PD *pd, int file_idx)
@@ -371,28 +381,12 @@ int find_var(struct file_info *file, char *var_name)
 	for (j = NUM_AXIS_VARS; j < file->nvars; j++) {
 		char *name = file->vars[j].name;
 
-		if (strlen(name) != strlen(var_name)) continue;
-		if (memcmp(name, var_name, strlen(name))) continue;
-
+		if (strcmp(name, var_name)) continue;
 		idx = j; 
 		break;
 	}
 
 	return idx;
-}
-
-int init_data_buf(struct data_buf **buf, int num)
-{
-	int i;
-	struct data_buf *_buf = (struct data_buf *)malloc(sizeof(struct data_buf) * num);
-	check_error(_buf, malloc);
-	memset(_buf, 0, sizeof(struct data_buf) * num);
-
-	for (i = 0; i < num; i++) _buf[i].dtype = MPI_DATATYPE_NULL;
-
-	*buf = _buf;
-
-	return 0;
 }
 
 void cycle_transfer_start(PD *pd)
