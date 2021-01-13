@@ -4,8 +4,10 @@ args=()
 group=($(id -nG))
 master=
 target=
+ppn=2
+nnodes=
 
-# Need to add case for Fugaku
+# Need to add another case for Fugaku
 case `hostname` in
 	*ofp*)
 		target=ofp
@@ -19,11 +21,15 @@ if [ ! -e ${log_dir} ]; then
 	mkdir -p ${log_dir} || exit 1
 fi
 
-while getopts "n:i:j:c:m:a:u:x:y:" OPT; do
+while getopts "n:p:i:j:c:m:a:u:x:y:" OPT; do
 	case ${OPT} in
 	n)
+		nnodes=${OPTARG}
+		args+=("-node ${nnodes}")
+		;;
+	p)
 		nprocs=${OPTARG}
-		args+=("-np ${OPTARG}")
+		args+=("-np ${nprocs}")
 		;;
 	i)
 		args+=("-imax ${OPTARG}")
@@ -56,13 +62,9 @@ while getopts "n:i:j:c:m:a:u:x:y:" OPT; do
 	esac
 done
 
-if [ -z "${nprocs}" ]; then
-	nprocs=4
-fi
-
-if [ -z "${master}" ]; then 
-	master=2
-fi
+if [ -z "${nprocs}" ]; then nprocs=4; fi
+if [ -z "${nnodes}" ]; then nnodes=${nprocs}; fi
+if [ -z "${master}" ]; then master=2; fi
 
 if [ "${target}" = "ofp" ]; then
 #	rsc="debug-cache"
@@ -84,7 +86,7 @@ cat <<- EOF > ${batch_script}
 #!/bin/bash
 #
 #PJM -N "d-${nprocs}"
-#PJM -L "node=$((nprocs * 2))"
+#PJM -L "node=$((nnodes*2))"
 #PJM -L "rscgrp=${rsc}"
 #PJM -L "elapse=${elapse_time}"
 #PJM -g ${group[-1]}
@@ -92,8 +94,7 @@ cat <<- EOF > ${batch_script}
 #PJM --spath ${log_dir}/%n.%j.stat
 #PJM -o ${log_dir}/%n.%j.out
 #PJM -e ${log_dir}/%n.%j.err
-#	PJM --mpi "proc=$((nprocs * 2))"
-#PJM --mpi "max-proc-per-node=1"
+#PJM --mpi "proc=$((nprocs*2))"
 
 sh ${script_dir}/exec.sh ${args[@]}
 

@@ -3,12 +3,24 @@
 SPLIT_WRAPPER=@split_wrapper@
 top_dir=@abs_top_builddir@
 log_dir=${top_dir}/log
+bin_scale="${top_dir}/bin/scale"
+bin_letkf="${top_dir}/bin/letkf"
+scale_nodes=scale.nodes
+letkf_nodes=letkf.nodes
 
 trap_int()
 {
 	trap - SIGINT
 	echo "Execution of the benchmark is interrupted!"
 	exit
+}
+
+append_ppn()
+{
+	machine_file=$1
+	ppn=$2
+
+	sed -e "s/$/:${ppn}/" -i ${machine_file}
 }
 
 trap trap_int SIGINT
@@ -18,43 +30,42 @@ for opts; do
 		shift; continue
 	else
 		opts=`echo ${opts} | tr -d -`
+		shift
 	fi
 	case $opts in
 		np)
-			shift
 			np=$1
 			;;
 		imax)
-			shift
 			imax=$1
 			;;
 		jmax)
-			shift
 			jmax=$1
 			;;
 		cycles)
-			shift
 			cycles=$1
 			;;
 		member)
-			shift
 			member=$1
 			;;
 		run)
-			shift
 			num_run=$1
 			;;
 		master)
-			shift
 			master=$1
 			;;
 		px)
-			shift
 			px=$1
 			;;
 		py)
-			shift
 			py=$1
+			;;
+		node)
+			nnodes=$1
+			;;
+		*)
+			echo "$0 [ERROR]: Invalid option -$opts"
+			exit
 	esac
 done
 
@@ -65,6 +76,15 @@ if [ -z "$cycles" ]; then cycles=6; fi
 if [ -z "$member" ]; then member=2; fi
 if [ -z "$master" ]; then master=2; fi
 if [ -z "$num_run" ]; then num_run=1; fi
+# If number of nodes is not set, set into
+# number of processes (one process per node)
+if [ -z "$nnodes" ]; then nnodes=${np}; fi
+
+# Calculate procs per node
+ppn=$((np/nnodes))
+if [ `echo "${np} % ${nnodes}"| bc` -ne 0 ]; then
+	ppn=$((ppn+1))
+fi
 
 SCALE_NP=$((np/member))
 if [ ${master} -gt ${SCALE_NP} ];then
@@ -73,6 +93,11 @@ fi
 workgroup_size=$((SCALE_NP/master))
 echo "Every ${workgroup_size} procs handled by a master process"
 echo "Benchmark will run ${num_run} time(s)..."
+
+#DEBUG
+echo "imax=$imax jmax=$jmax nprocs=$np cycles=$cycles"
+echo "nens=$member #run=$num_run #masters=$master"
+echo "px=$px py=$py ppn=${ppn}"
 
 # only report error messages by default
 export DTF_VERBOSE_LEVEL=0
@@ -84,16 +109,28 @@ bin_opts=(-imax=${imax} -jmax=${jmax} -member=${member} -cycles=${cycles})
 if [ -n "$px" -a -n "$py" ]; then
 	bin_opts+=("-px=${px}" "-py=${py}")
 fi
-bin_scale="${top_dir}/bin/scale"
-bin_letkf="${top_dir}/bin/letkf"
 
+# Setup machine files (OFP)
+find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
+
+if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
+	cat ${I_MPI_HYDRA_HOST_FILE} | head -n ${nnodes} > ${scale_nodes}
+	cat ${I_MPI_HYDRA_HOST_FILE} | tail -n ${nnodes} > ${letkf_nodes}
+
+#	append_ppn ${scale_nodes} ${ppn}
+#	append_ppn ${letkf_nodes} ${ppn}
+else
+	echo "[Warning] Allocated node information is unknown"
+fi
+
+# Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
 		mpiexec -n ${np} ${bin_scale} ${bin_opts[@]} : -n ${np} ${bin_letkf} ${bin_opts[@]}
 	else
-		mpiexec -n ${np} ${bin_scale} ${bin_opts[@]} &
-		mpiexec	-n ${np} ${bin_letkf} ${bin_opts[@]}
+		mpiexec -n ${np} -machinefile ${scale_nodes} ${bin_scale} ${bin_opts[@]} &
+		mpiexec	-n ${np} -machinefile ${letkf_nodes} ${bin_letkf} ${bin_opts[@]}
 	fi
 
 	if [ "$?" -ne 0 ]; then
