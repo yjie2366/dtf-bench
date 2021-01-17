@@ -4,16 +4,21 @@ args=()
 group=($(id -nG))
 master=
 target=
-ppn=2
+ppn=
 nnodes=
+mck=${mck:=0}
 
 # Need to add another case for Fugaku
 case `hostname` in
 	*ofp*)
 		target=ofp
 		;;
+	fn01sv*)
+		target=fugaku
+		;;
 	*)
-		target=unknown
+		echo "[ERROR] Unsupported Machine"
+		exit 1
 		;;
 esac
 
@@ -66,13 +71,24 @@ if [ -z "${nprocs}" ]; then nprocs=4; fi
 if [ -z "${nnodes}" ]; then nnodes=${nprocs}; fi
 if [ -z "${master}" ]; then master=2; fi
 
+ppn=$((nprocs/nnodes))
+if [ `echo "${nprocs} % ${nnodes}"| bc` -ne 0 ]; then
+	ppn=$((ppn+1))
+fi
+
 if [ "${target}" = "ofp" ]; then
-#	rsc="debug-cache"
-	rsc="regular-flat"
+	#rsc_args="rscgrp=debug-cache"
+	rsc_args="rscgrp=regular-flat"
 elif [ "${target}" = "fugaku" ]; then
-	rsc="eap-small"
-	if [ $((nprocs*2)) -gt 385 ]; then
-		rsc="eap-large"
+	if [ ${mck} -eq 0 ]; then
+		if [ $((nprocs*2)) -gt 385 ]; then
+			rsc_args="rscgrp=eap-large"
+		else
+			rsc_args="rscgrp=eap-small"
+		fi
+	else
+		# mckernel resource group
+		rsc_args="rscunit=rscunit_ft01,rscgrp=dvsys-mck1,jobenv=linux2"
 	fi
 else
 	echo "[ERROR] Unsupported Machine"
@@ -87,7 +103,7 @@ cat <<- EOF > ${batch_script}
 #
 #PJM -N "d-${nprocs}"
 #PJM -L "node=$((nnodes*2))"
-#PJM -L "rscgrp=${rsc}"
+#PJM -L "${rsc_args}"
 #PJM -L "elapse=${elapse_time}"
 #PJM -g ${group[-1]}
 #PJM -S
@@ -95,17 +111,23 @@ cat <<- EOF > ${batch_script}
 #PJM -o ${log_dir}/%n.%j.out
 #PJM -e ${log_dir}/%n.%j.err
 #PJM --mpi "proc=$((nprocs*2))"
+#PJM --mpi "max-proc-per-node=${ppn}"
 
 sh ${script_dir}/exec.sh ${args[@]}
 
 EOF
 
-ret=$(pjsub ${batch_script})
-jobid=`echo $ret | grep -i "submitted" | awk '{print $6}'`
+ret="$(pjsub ${batch_script})"
+retval=$?
+if [ "$retval" -eq 0 ]; then
+	jobid=`echo $ret | grep -i "submitted" | awk '{print $6}'`
+	echo "JOB ${jobid} submitted."
 
-echo "JOB ${jobid} submitted."
-
-pjwait ${jobid}
+	pjwait ${jobid}
+else
+	echo "[ERROR] Error happened in pjsub with return value: ${retval}"
+	exit
+fi
 
 runlog_dir="${log_dir}/run-${nprocs}-${master}"
 if [ ! -d "runlog_dir" ]; then
