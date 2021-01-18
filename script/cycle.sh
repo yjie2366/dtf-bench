@@ -8,6 +8,28 @@ ppn=
 nnodes=
 mck=${mck:=0}
 
+usage()
+{
+cat << EOF
+$0 [OPTION_1] [ARG_1] ...
+    If no options and arguments explicitly specified,
+    a job with default settings will be submitted.    
+
+    -h  Print help message
+
+    -n	Number of nodes
+    -p	Number of processes
+    -x	Number of processes on x-coord
+    -y	Number of processes on y-coord
+    -m	Number of ensembles
+    -i	Grid length on x-coord
+    -j	Grid length on y-coord
+    -c	Number of I/O cycles
+    -a	Number of master processes(matcher) in DTF
+    -u	Number of runs in a row
+EOF
+}
+
 # Need to add another case for Fugaku
 case `hostname` in
 	*ofp*)
@@ -26,7 +48,7 @@ if [ ! -e ${log_dir} ]; then
 	mkdir -p ${log_dir} || exit 1
 fi
 
-while getopts "n:p:i:j:c:m:a:u:x:y:" OPT; do
+while getopts "n:p:i:j:c:m:a:u:x:y:h" OPT; do
 	case ${OPT} in
 	n)
 		nnodes=${OPTARG}
@@ -60,6 +82,10 @@ while getopts "n:p:i:j:c:m:a:u:x:y:" OPT; do
 		;;
 	y)
 		args+=("-py ${OPTARG}")
+		;;
+	h)
+		usage
+		exit
 		;;
 	?)
 		echo "[ERROR] Invalid Option"
