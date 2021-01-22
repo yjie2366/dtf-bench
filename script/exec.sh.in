@@ -2,7 +2,6 @@
 
 SPLIT_WRAPPER=@split_wrapper@
 top_dir=@abs_top_builddir@
-log_dir=${top_dir}/log
 bin_scale="${top_dir}/bin/scale"
 bin_letkf="${top_dir}/bin/letkf"
 scale_nodes=scale.nodes
@@ -125,18 +124,32 @@ fi
 COMMENT
 
 # only report error messages by default
-export DTF_VERBOSE_LEVEL=0
+export DTF_VERBOSE_LEVEL=2
 export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
 
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
-	if [ -n "${SPLIT_WRAPPER}" ]; then
+	if [ -n "${SPLIT_WRAPPER}" ]; then # FUGAKU
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
 		mpiexec -n ${np} ${bin_scale} ${bin_opts[@]} :\
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
-	else
+	else # OFP
+		# Verify Intel MPI version because the default ver.2019.5
+	        # may not work for DTF
+
+		impi_ver=2018.0.128 # works
+		#impi_ver=2018.1.163 # works
+		#impi_ver=2018.2.199 # works
+			
+		#impi_ver=2018.3.222 # NOT work NOT stable
+		#impi_ver=2019.1.144 # NOT work
+		#impi_ver=2019.3.199 # NOT work
+
+		module switch intel/${impi_ver}
+		echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
+
 		mpiexec -n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
 		mpiexec	-n ${np} ${mfargs_letkf} ${bin_letkf} ${bin_opts[@]}
 	fi

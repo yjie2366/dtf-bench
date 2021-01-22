@@ -88,7 +88,7 @@ while getopts "n:p:i:j:c:m:a:u:x:y:h" OPT; do
 		exit
 		;;
 	?)
-		echo "[ERROR] Invalid Option"
+		echo "[ERROR] Invalid option"
 		exit 1
 	esac
 done
@@ -104,7 +104,7 @@ fi
 
 if [ "${target}" = "ofp" ]; then
 	#rsc_args="rscgrp=debug-cache"
-	rsc_args="rscgrp=regular-flat"
+	rsc_args="rscgrp=regular-cache"
 elif [ "${target}" = "fugaku" ]; then
 	if [ ${mck} -eq 0 ]; then
 		if [ $((nprocs*2)) -gt 385 ]; then
@@ -128,7 +128,7 @@ cat <<- EOF > ${batch_script}
 #!/bin/bash
 #
 #PJM -N "d-${nprocs}"
-#PJM -L "node=$((nnodes*2))"
+#PJM -L "node=${nnodes}"
 #PJM -L "${rsc_args}"
 #PJM -L "elapse=${elapse_time}"
 #PJM -g ${group[-1]}
@@ -136,7 +136,7 @@ cat <<- EOF > ${batch_script}
 #PJM --spath ${log_dir}/%n.%j.stat
 #PJM -o ${log_dir}/%n.%j.out
 #PJM -e ${log_dir}/%n.%j.err
-#PJM --mpi "proc=$((nprocs*2))"
+#PJM --mpi "proc=${nprocs}"
 #PJM --mpi "max-proc-per-node=${ppn}"
 
 sh ${script_dir}/exec.sh ${args[@]}
