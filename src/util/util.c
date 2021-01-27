@@ -360,8 +360,6 @@ int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int fla
 			ret = ncmpi_def_var(fid, var->name, var->type, var->ndims,
 					var->dims, &var->varid);
 			check_io(ret, ncmpi_def_var);
-			int rank = -1;
-			MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 		}
 		else {
 			ret = ncmpi_inq_varid(fid, var->name, &var->varid);

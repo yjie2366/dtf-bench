@@ -126,7 +126,7 @@ int write_hist(PD *pd, int cycle)
 	MPI_Offset buf_size = file->databuf_sz;
 	
 	prepare_file(file, pd->ens_comm, file_path, FILE_CREATE, &ncid);
-	
+
 	ret = ncmpi_buffer_attach(ncid, buf_size);
 	check_io(ret, ncmpi_buffer_attach);
 

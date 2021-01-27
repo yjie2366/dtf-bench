@@ -103,8 +103,8 @@ if [ `echo "${nprocs} % ${nnodes}"| bc` -ne 0 ]; then
 fi
 
 if [ "${target}" = "ofp" ]; then
-	#rsc_args="rscgrp=debug-cache"
-	rsc_args="rscgrp=regular-cache"
+	rsc_args="rscgrp=debug-flat"
+	#rsc_args="rscgrp=regular-cache"
 elif [ "${target}" = "fugaku" ]; then
 	if [ ${mck} -eq 0 ]; then
 		if [ $((nprocs*2)) -gt 385 ]; then

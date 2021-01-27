@@ -24,7 +24,7 @@ struct var_pair {
 };
 
 struct io_vars {
-	char name[64];
+	char *name;
 	int idx;
 };
 

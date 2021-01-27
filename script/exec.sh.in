@@ -124,7 +124,7 @@ fi
 COMMENT
 
 # only report error messages by default
-export DTF_VERBOSE_LEVEL=2
+export DTF_VERBOSE_LEVEL=0
 export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}

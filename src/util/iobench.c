@@ -406,9 +406,21 @@ static void init_fileinfo(PD *pd)
 		data_path[len_path] = '\0';
 	}
 
-	/* Create data folder if it does not exist */
-	ret = create_dirs(data_path);
-	check_error(!ret, create_dirs);
+	/* Create data folder for each cycle if it does not exist */
+	for (i = 0; i < pd->cycles; i++) {
+		int off = 0;
+		char cycle_path[MAX_PATH_LEN];
+
+		off = strlen(data_path);
+		memcpy(cycle_path, data_path, off);
+		sprintf(cycle_path+off, "%d/", i);
+		
+		off = strlen(cycle_path);
+		cycle_path[off] = '\0';
+
+		ret = create_dirs(cycle_path);
+		check_error(!ret, create_dirs);
+	}
 
 	/* Init file info */
 	pd->files = (struct file_info *)calloc(pd->nfiles, sizeof(struct file_info));
@@ -471,6 +483,8 @@ static void init_fileinfo(PD *pd)
 			check_error(ret == 3, fscanf);
 			
 			strcpy(var->name, var_name);
+			var->name[strlen(var_name)] = '\0';
+
 			var->type = var_type;
 			var->ndims = num_var_dims;
 
@@ -480,8 +494,12 @@ static void init_fileinfo(PD *pd)
 			memset(var->dim_name, 0, (NC_MAX_NAME+1)*num_var_dims);
 			
 			for (iter = 0; iter < num_var_dims; iter++) {
+				size_t len;
 				ret = fscanf(fp, "%s", var->dim_name[iter]);
 				check_error(ret == 1, fscanf);
+
+				len = strlen(var->dim_name[iter]);
+				var->dim_name[iter][len] = '\0';
 			}
 
 			/* Will be filled by pnetcdf later */
