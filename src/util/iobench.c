@@ -329,49 +329,51 @@ static void init_file_buffers(PD *pd)
 		}
 		/* LETKF write buffers: only anal_vars */
 		else if (strstr(comp_name, "letkf")) {
-			for (i = 0; i < NUM_IOVARS_ANAL; i++) {
-				int j;
-				int idx = anal_vars[i].idx;
-				struct var_pair *var = &file->vars[idx];
-				struct data_buf *wbuf = &var_write_buffers[idx];
-				int ndims = var->ndims;
-				MPI_Offset *start, *count;
-				float *data = NULL;
-				MPI_Offset nelems = 1;
-				int varid = idx;
+			if (fi == ANAL) {
+				for (i = 0; i < NUM_IOVARS_ANAL; i++) {
+					int j;
+					int idx = anal_vars[i].idx;
+					struct var_pair *var = &file->vars[idx];
+					struct data_buf *wbuf = &var_write_buffers[idx];
+					int ndims = var->ndims;
+					MPI_Offset *start, *count;
+					float *data = NULL;
+					MPI_Offset nelems = 1;
+					int varid = idx;
 
-				start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
-				check_error(start, malloc);
-				count = start + ndims;
+					start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
+					check_error(start, malloc);
+					count = start + ndims;
 
-				for (j = 0; j < ndims; j++) {
-					if (strchr(var->dim_name[j], 'z')) {
-						start[j] = 0;
-						count[j] = KMAX;
-					}
-					else if (strchr(var->dim_name[j], 'y')) {
-						start[j] = JS_inG(pd);
-						count[j] = JMAX(pd);
-					}
-					else if (strchr(var->dim_name[j], 'x')) {
-						start[j] = IS_inG(pd);
-						count[j] = IMAX(pd);
+					for (j = 0; j < ndims; j++) {
+						if (strchr(var->dim_name[j], 'z')) {
+							start[j] = 0;
+							count[j] = KMAX;
+						}
+						else if (strchr(var->dim_name[j], 'y')) {
+							start[j] = JS_inG(pd);
+							count[j] = JMAX(pd);
+						}
+						else if (strchr(var->dim_name[j], 'x')) {
+							start[j] = IS_inG(pd);
+							count[j] = IMAX(pd);
+						}
+
+						nelems *= count[j];
 					}
 
-					nelems *= count[j];
+					data = (float *)malloc(sizeof(float) * nelems);
+					check_error(data, malloc);
+					memset(data, 0, sizeof(float) * nelems);
+					for (j = 0; j < nelems; j++)
+						data[j] = idx + 1;
+
+					wbuf->data = data;
+					wbuf->shape = start;
+					wbuf->ndims = ndims;
+					wbuf->varid = varid;
+					wbuf->nelems = nelems;
 				}
-
-				data = (float *)malloc(sizeof(float) * nelems);
-				check_error(data, malloc);
-				memset(data, 0, sizeof(float) * nelems);
-				for (j = 0; j < nelems; j++)
-					data[j] = idx + 1;
-
-				wbuf->data = data;
-				wbuf->shape = start;
-				wbuf->ndims = ndims;
-				wbuf->varid = varid;
-				wbuf->nelems = nelems;
 			}
 		}
 		else {
@@ -407,21 +409,23 @@ static void init_fileinfo(PD *pd)
 	}
 
 	/* Create data folder for each cycle if it does not exist */
-	for (i = 0; i < pd->cycles; i++) {
-		int off = 0;
-		char cycle_path[MAX_PATH_LEN];
+	if (!pd->world_rank) {
+		for (i = 0; i < pd->cycles; i++) {
+			int off = 0;
+			char cycle_path[MAX_PATH_LEN];
 
-		off = strlen(data_path);
-		memcpy(cycle_path, data_path, off);
-		sprintf(cycle_path+off, "%d/", i);
-		
-		off = strlen(cycle_path);
-		cycle_path[off] = '\0';
+			off = strlen(data_path);
+			memcpy(cycle_path, data_path, off);
+			sprintf(cycle_path+off, "%d/", i);
+			
+			off = strlen(cycle_path);
+			cycle_path[off] = '\0';
 
-		ret = create_dirs(cycle_path);
-		check_error(!ret, create_dirs);
+			ret = create_dirs(cycle_path);
+			check_error(!ret, create_dirs);
+		}
 	}
-
+	
 	/* Init file info */
 	pd->files = (struct file_info *)calloc(pd->nfiles, sizeof(struct file_info));
 	check_error(pd->files, calloc);
@@ -488,18 +492,18 @@ static void init_fileinfo(PD *pd)
 			var->type = var_type;
 			var->ndims = num_var_dims;
 
-			var->dim_name = (char (*)[NC_MAX_NAME+1])malloc(
-					(NC_MAX_NAME + 1) * num_var_dims);
+			var->dim_name = malloc(sizeof(char *) * num_var_dims);
 			check_error(var->dim_name, malloc);
-			memset(var->dim_name, 0, (NC_MAX_NAME+1)*num_var_dims);
+			memset(var->dim_name, 0, sizeof(char *) * num_var_dims);
 			
 			for (iter = 0; iter < num_var_dims; iter++) {
-				size_t len;
-				ret = fscanf(fp, "%s", var->dim_name[iter]);
+				char tmp[64] = { 0 };
+				ret = fscanf(fp, "%s", tmp);
 				check_error(ret == 1, fscanf);
-
-				len = strlen(var->dim_name[iter]);
-				var->dim_name[iter][len] = '\0';
+			
+				tmp[strlen(tmp)] = '\0';	
+				var->dim_name[iter] = strdup(tmp);
+				check_error(var->dim_name[iter], strdup);
 			}
 
 			/* Will be filled by pnetcdf later */
@@ -516,13 +520,14 @@ static void init_fileinfo(PD *pd)
 		check_error(file->databuf_sz > 0, get_databuf_size);
 
 		/* Fill pnetcdf file name for each cycle */
-		file->file_names = (char (*)[NC_MAX_NAME+1])malloc((NC_MAX_NAME+1)*pd->cycles);
+		file->file_names = malloc(sizeof(char *) * pd->cycles);
 		check_error(file->file_names, malloc);
+		memset(file->file_names, 0, sizeof(char *) * pd->cycles);
 
 		char *suffix = (i == ANAL) ? ".anal.nc" : ".hist.nc";
-		for (j = 0; j < pd->cycles; j++) {
-			fmt_filename(j, pd->ens_id, 6, data_path, suffix, file->file_names[j]);
-		}
+		for (j = 0; j < pd->cycles; j++)
+			fmt_filename(j, pd->ens_id, 6, data_path,
+					suffix, &file->file_names[j]);
 	}
 
 	init_file_buffers(pd);
@@ -743,12 +748,21 @@ int finalize_pd(PD *pd)
 		if (file->vars) {
 			for (j = 0; j < file->nvars; j++) {
 				struct var_pair *var = &file->vars[j];
-				if (var->dim_name) free(var->dim_name);
+				if (var->dim_name) {
+					int k;
+					for (k = 0; k < var->ndims; k++)
+						free(var->dim_name[k]);
+					free(var->dim_name);
+				}
 				if (var->dims) free(var->dims);
 			}
 			free(file->vars);
 		}
-		if (file->file_names) free(file->file_names);
+		if (file->file_names) {
+			for (j = 0; j < pd->cycles; j++)
+				free(file->file_names[j]);
+			free(file->file_names);
+		}
 	}
 
 	if (pd->time.cycle_transfer_time) free(pd->time.cycle_transfer_time);

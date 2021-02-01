@@ -19,7 +19,7 @@ struct var_pair {
 	int varid; 		// WRITTEN BY NCMPI CALL
 	nc_type type;		// READ FROM FILE
 	unsigned int ndims;	// READ FROM FILE
-	char (*dim_name)[NC_MAX_NAME+1]; // READ FROM FILE
+	char **dim_name; // READ FROM FILE
 	char name[64];		// READ FROM FILE
 };
 
@@ -68,7 +68,7 @@ struct file_info {
 	struct data_buf *var_write_buffers;
 	struct dim_pair *dims;
 	struct var_pair *vars;
-	char (*file_names)[NC_MAX_NAME+1];  // Path to output file for each cycle
+	char **file_names;  // Path to output file for each cycle
 };
 
 struct timing {
@@ -104,7 +104,7 @@ typedef struct proc_data {
 } PD;
 
 int create_dirs(char *path);
-void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix, char *name );
+void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix, char **p_name);
 int prepare_file(struct file_info *file, MPI_Comm comm, char *file_path, int flag, int *ncid);
 MPI_Offset get_databuf_size(PD *pd, int file_idx);
 int fill_buffer(struct data_buf *buf, float c, float a, float w);
