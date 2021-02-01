@@ -216,13 +216,14 @@ int create_dirs(char *path)
 	return 0;
 }
 
-void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix, char *name )
+void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix, char **p_name )
 {
 	char tmp[MAX_NAME_LEN] = { 0 };
 	char digits[MAX_NAME_LEN] = { 0 };
 	int num_digits = 0;
 	int i, off; 
-	
+	char *name = NULL;
+
 	if (prefix) {
 		int l = strlen(prefix);
 		memcpy(tmp, prefix, l);
@@ -245,8 +246,11 @@ void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix,
 		off += l;
 	}
 
-	memcpy(name, tmp, strlen(tmp));
-	name[off] = '\0';
+	tmp[off] = '\0';
+	name = strdup(tmp);
+	check_error(name, strdup);
+
+	*p_name = name;
 }
 
 MPI_Offset get_databuf_size(PD *pd, int file_idx)
