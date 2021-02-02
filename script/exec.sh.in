@@ -129,6 +129,9 @@ export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
 
+#MEMCHECK
+export MALLOC_TRACE=${top_dir}/log/scale_memcheck.log
+
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then # FUGAKU

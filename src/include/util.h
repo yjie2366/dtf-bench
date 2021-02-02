@@ -15,6 +15,10 @@
 #include "constants.h"
 #include "dtf.h"
 
+#ifdef MEMCHECK
+#include <mcheck.h>
+#endif
+
 #ifdef __GNUC__
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
