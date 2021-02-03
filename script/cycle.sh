@@ -97,6 +97,7 @@ if [ -z "${nprocs}" ]; then nprocs=4; fi
 if [ -z "${nnodes}" ]; then nnodes=${nprocs}; fi
 if [ -z "${master}" ]; then master=2; fi
 
+total_nprocs=$nprocs
 ppn=$((nprocs/nnodes))
 if [ `echo "${nprocs} % ${nnodes}"| bc` -ne 0 ]; then
 	ppn=$((ppn+1))
@@ -106,6 +107,7 @@ if [ "${target}" = "ofp" ]; then
 	rsc_args="rscgrp=debug-flat"
 	#rsc_args="rscgrp=regular-cache"
 elif [ "${target}" = "fugaku" ]; then
+	total_nprocs=$((nprocs*2))
 	if [ ${mck} -eq 0 ]; then
 		if [ $((nprocs*2)) -gt 385 ]; then
 			rsc_args="rscgrp=eap-large"
@@ -136,8 +138,8 @@ cat <<- EOF > ${batch_script}
 #PJM --spath ${log_dir}/%n.%j.stat
 #PJM -o ${log_dir}/%n.%j.out
 #PJM -e ${log_dir}/%n.%j.err
-#PJM --mpi "proc=${nprocs}"
-#PJM --mpi "max-proc-per-node=${ppn}"
+#PJM --mpi "proc=${total_nprocs}"
+#	PJM --mpi "max-proc-per-node=${ppn}"
 
 sh ${script_dir}/exec.sh ${args[@]}
 
