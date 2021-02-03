@@ -427,8 +427,9 @@ static void init_fileinfo(PD *pd)
 	}
 	
 	/* Init file info */
-	pd->files = (struct file_info *)calloc(pd->nfiles, sizeof(struct file_info));
-	check_error(pd->files, calloc);
+	pd->files = malloc(pd->nfiles * sizeof(struct file_info));
+	check_error(pd->files, malloc);
+	memset(pd->files, 0, sizeof(struct file_info) * pd->nfiles);
 
 	for (i = 0; i < pd->nfiles; i++) {
 		int j;
@@ -497,7 +498,8 @@ static void init_fileinfo(PD *pd)
 			memset(var->dim_name, 0, sizeof(char *) * num_var_dims);
 			
 			for (iter = 0; iter < num_var_dims; iter++) {
-				char tmp[64] = { 0 };
+				char tmp[16] = { 0 };
+
 				ret = fscanf(fp, "%s", tmp);
 				check_error(ret == 1, fscanf);
 			
@@ -507,9 +509,9 @@ static void init_fileinfo(PD *pd)
 			}
 
 			/* Will be filled by pnetcdf later */
-			var->dims = (int *)calloc(num_var_dims, sizeof(int));
+			var->dims = malloc(num_var_dims * sizeof(int));
 			check_error(var->dims, calloc);
-
+			memset(var->dims, 0, sizeof(int)*num_var_dims);
 		}
 
 		ret = fclose(fp);

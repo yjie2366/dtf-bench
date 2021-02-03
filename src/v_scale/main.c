@@ -15,14 +15,15 @@ int main(int argc, char **argv)
 	PD *pd = NULL;
 
 	MPI_Init(&argc, &argv);
-	ret = dtf_init(DTF_INIT_FILE, comp_name);
-	check_error(!ret, dtf_init);
-
 #ifdef MEMCHECK
 	int rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	if (!rank) mtrace();
 #endif
+
+	ret = dtf_init(DTF_INIT_FILE, comp_name);
+	check_error(!ret, dtf_init);
+	
 	init_pd(argc, argv, &pd);
 
 	/* Start Cycling */
@@ -35,13 +36,13 @@ int main(int argc, char **argv)
 	output_stat(pd, comp_name);
 	finalize_pd(pd);
 	
+	ret = dtf_finalize();
+	check_error(!ret, dtf_finalize);
+	
 #ifdef MEMCHECK
 	if (!rank) muntrace();
 #endif
 
-	ret = dtf_finalize();
-	check_error(!ret, dtf_finalize);
-	
 	MPI_Finalize();
 
 	return 0;
