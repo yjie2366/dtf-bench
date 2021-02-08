@@ -74,97 +74,109 @@ int fill_buffer(struct data_buf *buf, float c, float a, float w)
 
 int compare_buffer(PD *pd, struct data_buf *buf, int cycle, float weight)
 {
-	int j;
-	int varid = buf->varid;
-	int ndims = buf->ndims;
+	int j, varid, ndims, rank;
 	MPI_Offset d1, d2, d3, d4, cnt = 0;
-
-	MPI_Offset *count = buf->shape + ndims;
-	MPI_Offset *s_idx = buf->idxes;
-	MPI_Offset *e_idx = s_idx + ndims;
-	float *data = buf->data;
-	float *expect = NULL;
-	int rank = pd->world_rank;
-
+	MPI_Offset *count = NULL;
+	MPI_Offset *s_idx = NULL;
+	MPI_Offset *e_idx = NULL;
 	MPI_Offset nelems = 1;
+	float *data = NULL, *expect = NULL;
 
-	if (!buf || !data) {
-		fprintf(stderr, "[ERROR] Invalid buffer!\n");
+	if (!buf || !pd) {
+		fprintf(stderr, "[ERROR] Invalid argument!\n");
 		errno = EINVAL;
 
 		return errno;
 	}
+
+	data = buf->data;
+	rank = pd->world_rank;
+
+	varid = buf->varid;
+	ndims = buf->ndims;
 
 	if ((ndims > 4) || (ndims < 2)) {
-		fprintf(stderr, "[ERROR] Comparing %d-D array unsupported\n", ndims);
+		fprintf(stderr, "[ERROR] Comparing %d-D array not supported\n", ndims);
 		errno = EINVAL;
 
 		return errno;
 	}
+
+	count = buf->shape + ndims;
+	s_idx = buf->idxes;
+	e_idx = s_idx + ndims;
 	
 	for (j = 0; j < buf->ndims; j++)
 		nelems *= (e_idx[j] - s_idx[j]);
 
 	expect = (float *)malloc(sizeof(float) * nelems);
 	check_error(expect, malloc);
+	memset(expect, 0, sizeof(float) * nelems);
 
 	reset_seed(rank, cycle, varid);
 	for (j = 0; j < nelems; j++) expect[j] = get_float(rank, weight);
 
 	if (ndims == 2) {
-		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
-		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++) {
-			MPI_Offset idx = d1 * count[1] + d2;
-			float exp = expect[cnt++];
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++) {
+			for (d2 = s_idx[1]; d2 < e_idx[1]; d2++) {
 
-			if (exp != data[idx]) {
-				fprintf(stderr, "[ERROR] Unmatched value of var ID "
-						"%d [%ld, %ld]\n",
-						varid, d1, d2);
-				fprintf(stderr, "Expect: %f Acquired: %f\n",
-					exp, data[idx]);
-				errno = EINVAL;
-				return errno;
+				MPI_Offset idx = d1 * count[1] + d2;
+				float exp = expect[cnt++];
+
+				if (exp != data[idx]) {
+					fprintf(stderr, "[ERROR] Unmatched value of var ID "
+							"%d [%ld, %ld]\n",
+							varid, d1, d2);
+					fprintf(stderr, "Expect: %f Acquired: %f\n",
+							exp, data[idx]);
+					errno = EINVAL;
+					return errno;
+				}
 			}
 		}
 	}
 	else if (ndims == 3) {
-		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
-		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++)
-		for (d3 = s_idx[2]; d3 < e_idx[2]; d3++) {
-			MPI_Offset idx =  d1 * count[1] * count[2] 
-					+ d2 * count[2] + d3;
-			float exp = expect[cnt++];
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++) {
+			for (d2 = s_idx[1]; d2 < e_idx[1]; d2++) {
+				for (d3 = s_idx[2]; d3 < e_idx[2]; d3++) {
+					MPI_Offset idx =  d1 * count[1] * count[2] 
+						+ d2 * count[2] + d3;
+					float exp = expect[cnt++];
 
-			if (exp != data[idx]) {
-				fprintf(stderr, "[ERROR] Unmatched value of var ID "
-						"%d [%ld, %ld, %ld]\n",
-						varid, d1, d2, d3);
-				fprintf(stderr, "Expect: %f Acquired: %f\n",
-					exp, data[idx]);
-				errno = EINVAL;
-				return errno;
+					if (exp != data[idx]) {
+						fprintf(stderr, "[ERROR] Unmatched value of var ID "
+								"%d [%ld, %ld, %ld]\n",
+								varid, d1, d2, d3);
+						fprintf(stderr, "Expect: %f Acquired: %f\n",
+								exp, data[idx]);
+						errno = EINVAL;
+						return errno;
+					}
+				}
 			}
 		}
 	}
 	else if (ndims == 4) {
-		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++)
-		for (d2 = s_idx[1]; d2 < e_idx[1]; d2++)
-		for (d3 = s_idx[2]; d3 < e_idx[2]; d3++)
-		for (d4 = s_idx[3]; d4 < e_idx[3]; d4++) {
-			MPI_Offset idx =  d1 * count[1] * count[2] * count[3]
-					+ d2 * count[2] * count[3]
-					+ d3 * count[3] + d4;
-			float exp = expect[cnt++];
+		for (d1 = s_idx[0]; d1 < e_idx[0]; d1++) {
+			for (d2 = s_idx[1]; d2 < e_idx[1]; d2++) {
+				for (d3 = s_idx[2]; d3 < e_idx[2]; d3++) {
+					for (d4 = s_idx[3]; d4 < e_idx[3]; d4++) {
+						MPI_Offset idx =  d1 * count[1] * count[2] * count[3]
+							+ d2 * count[2] * count[3]
+							+ d3 * count[3] + d4;
+						float exp = expect[cnt++];
 
-			if (exp != data[idx]) {
-				fprintf(stderr, "[ERROR] Unmatched value of var ID "
-						"%d [%ld, %ld, %ld]\n",
-						varid, d1, d2, d3);
-				fprintf(stderr, "Expect: %f Acquired: %f\n",
-					exp, data[idx]);
-				errno = EINVAL;
-				return errno;
+						if (exp != data[idx]) {
+							fprintf(stderr, "[ERROR] Unmatched value of var ID "
+									"%d [%ld, %ld, %ld]\n",
+									varid, d1, d2, d3);
+							fprintf(stderr, "Expect: %f Acquired: %f\n",
+									exp, data[idx]);
+							errno = EINVAL;
+							return errno;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -221,7 +233,7 @@ void fmt_filename(int cycle, int id, int total_chrs, char *prefix, char *suffix,
 	char tmp[MAX_NAME_LEN] = { 0 };
 	char digits[MAX_NAME_LEN] = { 0 };
 	int num_digits = 0;
-	int i, off; 
+	int i, off = 0; 
 	char *name = NULL;
 
 	if (prefix) {
@@ -402,8 +414,7 @@ void cycle_transfer_start(PD *pd)
 
 void cycle_transfer_end(PD *pd, int cycle)
 {
-	double t = MPI_Wtime();
-	double dur = t - pd->time.trans_checkpoint;
+	double t = 0.0, dur = 0.0;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
@@ -413,6 +424,9 @@ void cycle_transfer_end(PD *pd, int cycle)
 		fprintf(stderr, "[ERROR] Illegal cycle ID\n");
 		return;
 	}
+
+	t = MPI_Wtime();
+	dur = t - pd->time.trans_checkpoint;
 	
 	pd->time.cycle_transfer_time[cycle] += dur;
 	pd->time.trans_checkpoint = t;
@@ -420,8 +434,7 @@ void cycle_transfer_end(PD *pd, int cycle)
 
 void cycle_transfer_rend(PD *pd, int cycle)
 {
-	double t = MPI_Wtime();
-	double dur = t - pd->time.trans_checkpoint;
+	double t = 0.0, dur = 0.0;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
@@ -431,6 +444,8 @@ void cycle_transfer_rend(PD *pd, int cycle)
 		fprintf(stderr, "[ERROR] %s: Illegal cycle ID\n", __func__);
 		return;
 	}
+	t = MPI_Wtime();
+	dur = t - pd->time.trans_checkpoint;
 	
 	pd->time.cycle_transfer_rtime[cycle] += dur;
 	pd->time.cycle_transfer_time[cycle] += dur;
@@ -439,8 +454,7 @@ void cycle_transfer_rend(PD *pd, int cycle)
 
 void cycle_transfer_wend(PD *pd, int cycle)
 {
-	double t = MPI_Wtime();
-	double dur = t - pd->time.trans_checkpoint;
+	double t = 0.0, dur = 0.0;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
@@ -450,6 +464,9 @@ void cycle_transfer_wend(PD *pd, int cycle)
 		fprintf(stderr, "[ERROR] %s: Illegal cycle ID\n", __func__);
 		return;
 	}
+
+	t = MPI_Wtime();
+	dur = t - pd->time.trans_checkpoint;
 	
 	pd->time.cycle_transfer_wtime[cycle] += dur;
 	pd->time.cycle_transfer_time[cycle] += dur;
@@ -467,8 +484,7 @@ void cycle_file_start(PD *pd)
 
 void cycle_file_end(PD *pd, int cycle)
 {
-	double t = MPI_Wtime();
-	double dur = t - pd->time.file_checkpoint;
+	double t = 0.0, dur = 0.0;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] PD pointer is NULL!\n");
@@ -478,6 +494,9 @@ void cycle_file_end(PD *pd, int cycle)
 		fprintf(stderr, "[ERROR] Illegal cycle ID\n");
 		return;
 	}
+
+	t = MPI_Wtime();
+	dur = t - pd->time.file_checkpoint;
 	
 	pd->time.cycle_file_time[cycle] += dur;
 	pd->time.file_checkpoint = t;
@@ -485,8 +504,7 @@ void cycle_file_end(PD *pd, int cycle)
 
 void cycle_file_rend(PD *pd, int cycle)
 {
-	double t = MPI_Wtime();
-	double dur = t - pd->time.file_checkpoint;
+	double t = 0.0, dur = 0.0;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
@@ -497,6 +515,9 @@ void cycle_file_rend(PD *pd, int cycle)
 		return;
 	}
 	
+	t = MPI_Wtime();
+	dur = t - pd->time.file_checkpoint;
+
 	pd->time.cycle_file_rtime[cycle] += dur;
 	pd->time.cycle_file_time[cycle] += dur;
 	pd->time.file_checkpoint = t;
@@ -504,8 +525,7 @@ void cycle_file_rend(PD *pd, int cycle)
 
 void cycle_file_wend(PD *pd, int cycle)
 {
-	double t = MPI_Wtime();
-	double dur = t - pd->time.file_checkpoint;
+	double t = 0.0, dur = 0.0;
 
 	if (!pd) {
 		fprintf(stderr, "[ERROR] %s: PD pointer is NULL!\n", __func__);
@@ -516,6 +536,9 @@ void cycle_file_wend(PD *pd, int cycle)
 		return;
 	}
 	
+	t = MPI_Wtime();
+	dur = t - pd->time.file_checkpoint;
+
 	pd->time.cycle_file_wtime[cycle] += dur;
 	pd->time.cycle_file_time[cycle] += dur;
 	pd->time.file_checkpoint = t;

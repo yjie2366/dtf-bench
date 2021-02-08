@@ -343,6 +343,8 @@ static void init_file_buffers(PD *pd)
 
 					start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
 					check_error(start, malloc);
+					memset(start, 0, sizeof(MPI_Offset) * ndims * 2);
+
 					count = start + ndims;
 
 					for (j = 0; j < ndims; j++) {
@@ -395,10 +397,10 @@ static void init_fileinfo(PD *pd)
 
 	/* Get path where data files will be stored */
 	if ((env = getenv("DATA_PATH")) != NULL) {
-		memcpy(data_path, env, MAX_PATH_LEN);
+		memcpy(data_path, env, strlen(env));
 	}
 	else {
-		memcpy(data_path, DATA_PATH, MAX_PATH_LEN);
+		memcpy(data_path, DATA_PATH, strlen(DATA_PATH));
 	}
 
 	/* Add trailing slash behind path */
@@ -470,7 +472,7 @@ static void init_fileinfo(PD *pd)
 		/* Initialize variable information */
 		file->vars = (struct var_pair *)malloc(file->nvars * sizeof(struct var_pair));
 		check_error(file->vars, malloc);
-		memset(file->vars, 0, sizeof(file->nvars * sizeof(struct var_pair)));
+		memset(file->vars, 0, file->nvars * sizeof(struct var_pair));
 
 		fp = fopen(info_fname, "r");
 		check_error(fp, fopen);
@@ -486,6 +488,12 @@ static void init_fileinfo(PD *pd)
 			ret = fscanf(fp, "%s %d %d", var_name, &var_type, &num_var_dims);
 			check_error(ret == 3, fscanf);
 			
+			if (num_var_dims < 0 || num_var_dims > 4) {
+				fprintf(stderr, "[ERROR] Invalid number of dimensions %d of varialbe: %s\n",
+					num_var_dims, var_name);
+				MPI_Abort(MPI_COMM_WORLD, -1);
+			}
+
 			strcpy(var->name, var_name);
 			var->name[strlen(var_name)] = '\0';
 
@@ -540,7 +548,7 @@ void init_pd(int argc, char **argv, PD **p_pd)
 	int px = 0, py = 0; // 2D-proc map
 	PD *pd = NULL;
 
-	if (!p_pd) {
+	if (p_pd == NULL) {
 		fprintf(stderr, "[ERROR] Invalid address of PD");
 		MPI_Abort(MPI_COMM_WORLD, EINVAL);
 	}
@@ -557,8 +565,8 @@ void init_pd(int argc, char **argv, PD **p_pd)
 			int j = 1;
 			int tmp_len;
 			char *tmp_p = tmp;
-			char key[512] = { 0 };
-			char value[512] = { 0 };
+			char key[MAX_PARAM_LEN] = { 0 };
+			char value[MAX_PARAM_LEN] = { 0 };
 
 			/* Ignore all the leading dashes */
 			while (argv[opt][j] == '-') j++;

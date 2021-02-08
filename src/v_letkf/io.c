@@ -29,6 +29,8 @@ int read_hist(PD *pd, int cycle)
 			
 			start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
 			check_error(start, malloc);
+			memset(start, 0, sizeof(MPI_Offset) * ndims * 2);
+
 			count = start + ndims;
 
 			/* History files have no halo */
@@ -129,6 +131,8 @@ int read_anal(PD *pd, int cycle)
 
 			start = (MPI_Offset *)malloc(sizeof(MPI_Offset) * ndims * 2);
 			check_error(start, malloc);
+			memset(start, 0, sizeof(MPI_Offset) * ndims * 2);
+
 			count = start + ndims;
 
 			for (j = 0; j < ndims; j++) {
