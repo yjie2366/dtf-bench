@@ -6,6 +6,7 @@ bin_scale="${top_dir}/bin/scale"
 bin_letkf="${top_dir}/bin/letkf"
 scale_nodes=scale.nodes
 letkf_nodes=letkf.nodes
+bin_opts=()
 
 trap_int()
 {
@@ -32,35 +33,45 @@ for opts; do
 		shift
 	fi
 	case $opts in
-		np)
-			np=$1
-			;;
 		imax)
-			imax=$1
+			bin_opts+=("-imax=$1")
 			;;
 		jmax)
-			jmax=$1
+			bin_opts+=("-jmax=$1")
+			;;
+		kmax)
+			bin_opts+=("-kmax=$1")
+			;;
+		lkmax)
+			bin_opts+=("-lkmax=$1")
+			;;
+		ukmax)
+			bin_opts+=("-ukmax=$1")
+			;;
+		okmax)
+			bin_opts+=("-okmax=$1")
 			;;
 		cycles)
-			cycles=$1
+			bin_opts+=("-cycles=$1")
+			;;
+		px)
+			bin_opts+=("-px=$1")
+			;;
+		py)
+			bin_opts+=("-py=$1")
 			;;
 		member)
 			member=$1
+			bin_opts+=("-member=${member}")
+			;;
+		np)
+			np=$1
 			;;
 		run)
 			num_run=$1
 			;;
 		master)
 			master=$1
-			;;
-		px)
-			px=$1
-			;;
-		py)
-			py=$1
-			;;
-		node)
-			nnodes=$1
 			;;
 		*)
 			echo "$0 [ERROR]: Invalid option -$opts"
@@ -69,46 +80,33 @@ for opts; do
 done
 
 if [ -z "$np" ]; then np=4; fi
-if [ -z "$imax" ]; then imax=80; fi
-if [ -z "$jmax" ]; then jmax=80; fi
-if [ -z "$cycles" ]; then cycles=6; fi
 if [ -z "$member" ]; then member=2; fi
 if [ -z "$master" ]; then master=2; fi
 if [ -z "$num_run" ]; then num_run=1; fi
-# If number of nodes is not set, set into
-# number of processes (one process per node)
-if [ -z "$nnodes" ]; then nnodes=${np}; fi
 
+# Number of processes per ensemble/member
 SCALE_NP=$((np/member))
 if [ ${master} -gt ${SCALE_NP} ];then
 	master=${SCALE_NP}
 fi
 workgroup_size=$((SCALE_NP/master))
+
+echo "Designated number of matcher: ${master}"
 echo "Every ${workgroup_size} procs handled by a master process"
 echo "Benchmark will run ${num_run} time(s)..."
-#DEBUG
-echo "imax=$imax jmax=$jmax nprocs=$np cycles=$cycles"
-echo "nens=$member #run=$num_run #masters=$master"
-echo "px=$px py=$py"
 
 ppn=${PJM_PROC_BY_NODE}
 if [ -n "${ppn}" ]; then
-	echo "ppn=${ppn}"
+	echo "Number of processes per node: ${ppn}"
 else
 	echo "[WARNING] Unable to retrieve ppn information"
 fi
 
-# Make up the argument list for binaries
-bin_opts=(-imax=${imax} -jmax=${jmax} -member=${member} -cycles=${cycles})
-if [ -n "$px" -a -n "$py" ]; then
-	bin_opts+=("-px=${px}" "-py=${py}")
-fi
-
+# Fugaku does not support this environment variable (Intel MPI only)
+: << COMMENT
 # Setup machine files (OFP)
 find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
 
-# Fugaku does not support this environment variable (Intel MPI only)
-: << COMMENT
 if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
 	cat ${I_MPI_HYDRA_HOST_FILE} | head -n ${nnodes} > ${scale_nodes}
 	cat ${I_MPI_HYDRA_HOST_FILE} | tail -n ${nnodes} > ${letkf_nodes}

@@ -303,19 +303,19 @@ MPI_Offset get_databuf_size(PD *pd, int file_idx)
 				dim_size = (file_idx == ANAL)? JA(pd) : JMAX(pd);
 			}
 			else if (!(strcmp(name, "z"))) {
-				dim_size = (file_idx == ANAL)? KA : KMAX;
+				dim_size = (file_idx == ANAL)? KA(pd) : KMAX(pd);
 			}
 			else if (!(strcmp(name, "zh"))) {
-				dim_size = KA + 1;
+				dim_size = KA(pd) + 1;
 			}
 			else if (!(strcmp(name, "oz"))) {
-				dim_size = OKMAX;
+				dim_size = OKMAX(pd);
 			}
 			else if (!(strcmp(name, "lz"))) {
-				dim_size = LKMAX;
+				dim_size = LKMAX(pd);
 			}
 			else if (!(strcmp(name, "uz"))) {
-				dim_size = UKMAX;
+				dim_size = UKMAX(pd);
 			}
 			else if (!(strcmp(name, "time"))) {
 				dim_size = 1;

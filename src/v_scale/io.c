@@ -236,9 +236,9 @@ int read_anal(PD *pd, int cycle)
 			for (j = 0; j < ndims; j++) {
 				if (strchr(var->dim_name[j], 'z')) {
 					start[j] = 0;
-					count[j] = KMAX;
-					size[j] = KA;
-					sub_size[j] = KMAX;
+					count[j] = KMAX(pd);
+					size[j] = KA(pd);
+					sub_size[j] = KMAX(pd);
 					sub_off[j] = KHALO;
 
 					if (strchr(var->dim_name[j], 'h'))
@@ -266,7 +266,7 @@ int read_anal(PD *pd, int cycle)
 					sub_off, MPI_ORDER_C, MPI_FLOAT, &dtype);
 			MPI_Type_commit(&dtype);
 
-			total_count = IA(pd) * JA(pd) * KA;
+			total_count = IA(pd) * JA(pd) * KA(pd);
 
 			data = (float *)malloc(sizeof(float) * total_count);
 			check_error(data, malloc);

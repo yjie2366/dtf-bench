@@ -30,13 +30,13 @@
 #define IHALO	2
 #define JHALO	2
 
-#define KMAX 	98
-#define OKMAX 	1
-#define LKMAX 	5
-#define UKMAX 	5
-
-#define IMAX(pd) (pd->imax)
-#define JMAX(pd) (pd->jmax)
+/* data size per process */
+#define IMAX(pd)	(pd->imax)
+#define JMAX(pd)	(pd->jmax)
+#define KMAX(pd)	(pd->kmax)
+#define OKMAX(pd)	(pd->okmax)
+#define LKMAX(pd)	(pd->lkmax)
+#define UKMAX(pd)	(pd->ukmax)
 
 #define IMAXG(pd) (IMAX(pd) * pd->proc_num_x)
 #define JMAXG(pd) (JMAX(pd) * pd->proc_num_y)
@@ -45,25 +45,25 @@
 #define IAG(pd) (IMAXG(pd) + IHALO * 2)
 #define JAG(pd) (JMAXG(pd) + JHALO * 2)
 
-#define KA	(KMAX + KHALO * 2)
+#define KA(pd)	(KMAX(pd) + KHALO * 2)
 #define IA(pd)  (IMAX(pd) + IHALO * 2)
 #define JA(pd)  (JMAX(pd) + JHALO * 2)
 
 #define KS	KHALO
-#define KE	(KMAX + KHALO - 1)
+#define KE(pd)	(KMAX(pd) + KHALO - 1)
 #define IS	IHALO
 #define IE(pd) (IMAX(pd) + IHALO - 1)
 #define JS	JHALO
 #define JE(pd) (JMAX(pd) + JHALO - 1)
 // Ocean
 #define OKS	0
-#define OKE	(OKMAX - 1)
+#define OKE(pd)	(OKMAX(pd) - 1)
 // Land
 #define LKS	0
-#define LKE	(LKMAX - 1)
+#define LKE(pd)	(LKMAX(pd) - 1)
 // Urban
 #define UKS	0
-#define UKE	(UKMAX - 1)
+#define UKE(pd)	(UKMAX(pd) - 1)
 
 // global index
 #define IS_inG(pd) (IHALO + pd->proc_rank_x * IMAX(pd))

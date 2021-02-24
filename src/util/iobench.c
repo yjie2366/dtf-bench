@@ -4,27 +4,27 @@
 extern char *comp_name;
 
 struct dim_pair anal_dims[NUM_ANALDIMS] = {
-	{ "z"   , KMAX, 	-1 },
-	{ "zh"  , KMAX+1, 	-1 },
-	{ "oz"  , OKMAX, 	-1 },
-	{ "ozh" , OKMAX+1,	-1 },
-	{ "lz"  , LKMAX, 	-1 },
-	{ "lzh" , LKMAX+1, 	-1 },
-	{ "uz"  , UKMAX, 	-1 },
-	{ "uzh" , UKMAX+1,	-1 },
+	{ "z"   , 0, 		-1 },
+	{ "zh"  , 1, 		-1 },
+	{ "oz"  , 0, 		-1 },
+	{ "ozh" , 1,		-1 },
+	{ "lz"  , 0, 		-1 },
+	{ "lzh" , 1, 		-1 },
+	{ "uz"  , 0, 		-1 },
+	{ "uzh" , 1,		-1 },
 	{ "x"   , IHALO*2,	-1 },
 	{ "xh"  , IHALO*2,	-1 },
 	{ "y"   , JHALO*2,	-1 },
 	{ "yh"  , JHALO*2, 	-1 },
-	{ "CZ"  , KA, 		-1 },
-	{ "FZ"  , KA+1,	 	-1 },
-	{ "FDZ" , KA-1, 	-1 },
-	{ "OCZ" , OKMAX, 	-1 },
-	{ "OFZ" , OKMAX+1, 	-1 },
-	{ "LCZ" , LKMAX, 	-1 },
-	{ "LFZ" , LKMAX+1, 	-1 },
-	{ "UCZ" , UKMAX, 	-1 },
-	{ "UFZ" , UKMAX+1, 	-1 },
+	{ "CZ"  , 0, 		-1 },
+	{ "FZ"  , 1,	 	-1 },
+	{ "FDZ" , -1,	 	-1 },
+	{ "OCZ" , 0,	 	-1 },
+	{ "OFZ" , 1,	 	-1 },
+	{ "LCZ" , 0,	 	-1 },
+	{ "LFZ" , 1,	 	-1 },
+	{ "UCZ" , 0,	 	-1 },
+	{ "UFZ" , 1,	 	-1 },
 	{ "CX"  , IHALO*2, 	-1 },
 	{ "CY"  , JHALO*2, 	-1 },
 	{ "FX"  , IHALO*2+1, 	-1 },
@@ -40,27 +40,27 @@ struct dim_pair anal_dims[NUM_ANALDIMS] = {
 };
 
 struct dim_pair hist_dims[NUM_HISTDIMS] = {
-	{ "z"   , KMAX, 	-1 },
-	{ "zh"  , KMAX+1, 	-1 },
-	{ "oz"  , OKMAX, 	-1 },
-	{ "ozh" , OKMAX+1,	-1 },
-	{ "lz"  , LKMAX, 	-1 },
-	{ "lzh" , LKMAX+1, 	-1 },
-	{ "uz"  , UKMAX, 	-1 },
-	{ "uzh" , UKMAX+1,	-1 },
+	{ "z"   , 0, 		-1 },
+	{ "zh"  , 1, 		-1 },
+	{ "oz"  , 0, 		-1 },
+	{ "ozh" , 1,		-1 },
+	{ "lz"  , 0, 		-1 },
+	{ "lzh" , 1, 		-1 },
+	{ "uz"  , 0, 		-1 },
+	{ "uzh" , 1,		-1 },
 	{ "x"   , 0,		-1 },
 	{ "xh"  , 1,	 	-1 },
 	{ "y"	, 0,		-1 },
 	{ "yh"  , 1,		-1 },
-	{ "CZ"  , KA, 		-1 },
-	{ "FZ"  , KA+1,	 	-1 },
-	{ "FDZ" , KA-1, 	-1 },
-	{ "OCZ" , OKMAX, 	-1 },
-	{ "OFZ" , OKMAX+1, 	-1 },
-	{ "LCZ" , LKMAX, 	-1 },
-	{ "LFZ" , LKMAX+1, 	-1 },
-	{ "UCZ" , UKMAX, 	-1 },
-	{ "UFZ" , UKMAX+1, 	-1 },
+	{ "CZ"  , 0, 		-1 },
+	{ "FZ"  , 1,	 	-1 },
+	{ "FDZ" , -1,	 	-1 },
+	{ "OCZ" , 0,	 	-1 },
+	{ "OFZ" , 1,	 	-1 },
+	{ "LCZ" , 0,	 	-1 },
+	{ "LFZ" , 1,	 	-1 },
+	{ "UCZ" , 0,	 	-1 },
+	{ "UFZ" , 1,	 	-1 },
 	{ "CX"  , IHALO*2, 	-1 },
 	{ "CY"  , JHALO*2, 	-1 },
 	{ "FX"  , IHALO*2+1, 	-1 },
@@ -350,7 +350,7 @@ static void init_file_buffers(PD *pd)
 					for (j = 0; j < ndims; j++) {
 						if (strchr(var->dim_name[j], 'z')) {
 							start[j] = 0;
-							count[j] = KMAX;
+							count[j] = KMAX(pd);
 						}
 						else if (strchr(var->dim_name[j], 'y')) {
 							start[j] = JS_inG(pd);
@@ -555,7 +555,7 @@ void init_pd(int argc, char **argv, PD **p_pd)
 
 	pd = (struct proc_data *)malloc(sizeof(struct proc_data));
 	check_error(pd, malloc);
-	memset(pd, 0, sizeof(PD));
+	memset(pd, 0, sizeof(struct proc_data));
 
 	for (opt = 1; opt < argc; opt++) {
 		char tmp[MAX_PARAM_LEN] = { 0 };
@@ -577,10 +577,13 @@ void init_pd(int argc, char **argv, PD **p_pd)
 			while(*tmp_p != '=') {
 				tmp_p++;
 				if (*tmp_p == '\0') {
-					fprintf(stderr, "[ERROR] Invalid option format: %s\n", tmp);
+					fprintf(stderr,
+						"[ERROR] Invalid option format: %s\n",
+						tmp);
 					MPI_Abort(MPI_COMM_WORLD, EINVAL);
 				}
 			}
+
 			*tmp_p = '\0';
 			tmp_p++;
 			memcpy(key, tmp, strlen(tmp));
@@ -591,6 +594,18 @@ void init_pd(int argc, char **argv, PD **p_pd)
 			}
 			else if (!(strcmp(TOLOWER(key), "jmax"))) {
 				pd->jmax = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "kmax"))) {
+				pd->kmax = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "lkmax"))) {
+				pd->lkmax = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "ukmax"))) {
+				pd->ukmax = atoi(value);
+			}
+			else if (!(strcmp(TOLOWER(key), "okmax"))) {
+				pd->okmax = atoi(value);
 			}
 			else if (!(strcmp(TOLOWER(key), "member"))) {
 				pd->num_ens = atoi(value);
@@ -611,11 +626,16 @@ void init_pd(int argc, char **argv, PD **p_pd)
 		}
 	}
 	
-	if (pd->imax == 0) pd->imax = 32;
-	if (pd->jmax == 0) pd->jmax = 20;
-	if (pd->num_ens == 0) pd->num_ens = 2;
-	if (pd->cycles == 0) pd->cycles = 4;
-	pd->kmax = KMAX;
+	// Default configuration: 250m data
+	if (!pd->imax) pd->imax = 32;
+	if (!pd->jmax) pd->jmax = 20;
+	if (!pd->kmax) pd->kmax = 98;
+	if (!pd->lkmax) pd->lkmax = 5;
+	if (!pd->ukmax) pd->ukmax = 5;
+	if (!pd->okmax) pd->okmax = 1;
+	if (!pd->num_ens) pd->num_ens = 2;
+	if (!pd->cycles) pd->cycles = 4;
+	
 	pd->nfiles = 2;
 
 	MPI_Comm_size(MPI_COMM_WORLD, &pd->world_size);
@@ -637,9 +657,9 @@ void init_pd(int argc, char **argv, PD **p_pd)
 	MPI_Comm_size(pd->ens_comm, &pd->ens_size);
 	
 	if (!px || !py) {
-		px = upper(sqrt(pd->ens_size));
-		while (pd->ens_size % px) px++;
-		py = pd->ens_size / px;
+		py = upper(sqrt(pd->ens_size));
+		while (pd->ens_size % py) py++;
+		px = pd->ens_size / py;
 	}
 	else if ((px * py) != pd->ens_size) {
 		fprintf(stderr, "[ERROR] px [%d] * py [%d] is not equal to"
@@ -661,27 +681,94 @@ void init_pd(int argc, char **argv, PD **p_pd)
 	/* Only root process print arguments */
 	if (!pd->world_rank) {
 		fprintf(stdout, "%s: Number of Processes: %d Grid Size (IMAX * JMAX): %ld * %ld\n"
+				"\tKMAX: %ld OKMAX: %ld LKMAX: %ld UKMAX: %ld\n"
 				"\tNumber of Ensembles: %d Number of Cycles: %d\n"
 				"\tProcess Coordinate (X*Y): %d * %d\n",
-				comp_name, pd->world_size, pd->imax, pd->jmax, pd->num_ens,
-				pd->cycles, pd->proc_num_x, pd->proc_num_y);
+				comp_name, pd->world_size, pd->imax, pd->jmax,
+				pd->kmax, pd->okmax, pd->lkmax, pd->ukmax,
+				pd->num_ens, pd->cycles, pd->proc_num_x, pd->proc_num_y);
 	}
 
-	/* Add imax and jmax to length of each PnetCDF variables */
+	/* Add set length of each PnetCDF dimensions */
 	for (i = 0; i < NUM_ANALDIMS; i++) {
-		if ((strchr(anal_dims[i].name, 'X')) || (strchr(anal_dims[i].name, 'x'))) {
-			anal_dims[i].length += (pd->imax * pd->proc_num_x);
-		}
-		else if ((strchr(anal_dims[i].name, 'Y')) || (strchr(anal_dims[i].name, 'y'))) {
-			anal_dims[i].length += (pd->jmax * pd->proc_num_y);
-		}
+		struct dim_pair *anal_dim = &anal_dims[i];
 
-		if ((strchr(hist_dims[i].name, 'X')) || (strchr(hist_dims[i].name, 'x'))) {
-			hist_dims[i].length += (pd->imax * pd->proc_num_x);
+		// Anal
+		if (!(strcmp(anal_dim->name, "z")) ||
+		    !(strcmp(anal_dim->name, "zh"))) {
+			anal_dim->length += KMAX(pd);
 		}
-		else if ((strchr(hist_dims[i].name, 'Y')) || (strchr(hist_dims[i].name, 'y'))) {
-			hist_dims[i].length += (pd->jmax * pd->proc_num_y);
+		else if (!(strcmp(anal_dim->name, "CZ")) ||
+			!(strcmp(anal_dim->name, "FZ")) ||
+			!(strcmp(anal_dim->name, "FDZ"))) {
+			anal_dim->length += KA(pd);
 		}
+		else if ((strchr(anal_dim->name, 'o')) ||
+			(strchr(anal_dim->name, 'O'))) {
+			anal_dim->length += OKMAX(pd);
+		}
+		else if ((strchr(anal_dim->name, 'u')) ||
+			(strchr(anal_dim->name, 'U'))) {
+			anal_dim->length += UKMAX(pd);
+		}
+		else if ((strchr(anal_dim->name, 'l')) ||
+			(strchr(anal_dim->name, 'L'))) {
+			anal_dim->length += LKMAX(pd);
+		}
+		else if ((strchr(anal_dim->name, 'x')) ||
+			(strchr(anal_dim->name, 'X'))) {
+			anal_dim->length += (IMAX(pd) * pd->proc_num_x);
+		}
+		else if ((strchr(anal_dim->name, 'y')) ||
+			(strchr(anal_dim->name, 'Y'))) {
+			anal_dim->length += (JMAX(pd) * pd->proc_num_y);
+		}
+	}
+
+	for (i = 0; i < NUM_HISTDIMS; i++) {
+		struct dim_pair *hist_dim = &hist_dims[i];
+
+		// Hist
+		if (!(strcmp(hist_dim->name, "z")) ||
+		    !(strcmp(hist_dim->name, "zh"))) {
+			hist_dim->length += KMAX(pd);
+		}
+		else if (!(strcmp(hist_dim->name, "CZ")) ||
+			!(strcmp(hist_dim->name, "FZ")) ||
+			!(strcmp(hist_dim->name, "FDZ"))) {
+			hist_dim->length += KA(pd);
+		}
+		else if ((strchr(hist_dim->name, 'o')) ||
+			(strchr(hist_dim->name, 'O'))) {
+			hist_dim->length += OKMAX(pd);
+		}
+		else if ((strchr(hist_dim->name, 'u')) ||
+			(strchr(hist_dim->name, 'U'))) {
+			hist_dim->length += UKMAX(pd);
+		}
+		else if ((strchr(hist_dim->name, 'l')) ||
+			(strchr(hist_dim->name, 'L'))) {
+			hist_dim->length += LKMAX(pd);
+		}
+		else if ((strchr(hist_dim->name, 'x')) ||
+			 (strchr(hist_dim->name, 'X'))) {
+			hist_dim->length += (IMAX(pd) * pd->proc_num_x);
+		}
+		else if ((strchr(hist_dim->name, 'y')) ||
+			 (strchr(hist_dim->name, 'Y'))) {
+			hist_dim->length += (JMAX(pd) * pd->proc_num_y);
+		}
+	}
+
+	// DEBUG
+	for (i = 0; i < NUM_ANALDIMS; i++) {
+		fprintf(stderr, "[DEBUG] anal dim %s length: %ld\n",
+				anal_dims[i].name, anal_dims[i].length);
+	}
+
+	for (i = 0; i < NUM_HISTDIMS; i++) {
+		fprintf(stderr, "[DEBUG] hist dim %s length: %ld\n",
+				hist_dims[i].name, hist_dims[i].length);
 	}
 
 	init_fileinfo(pd);

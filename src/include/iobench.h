@@ -87,6 +87,9 @@ typedef struct proc_data {
 	MPI_Offset imax;     	/* Size of data for the process at coord x without HALO*/
 	MPI_Offset jmax;	/* Size of data for the process at coord y without HALO*/
 	MPI_Offset kmax;	/* Size of data for the process at coord z without HALO*/
+	MPI_Offset lkmax;
+	MPI_Offset ukmax;
+	MPI_Offset okmax;
 	int num_ens;  		/* Number of ensembles */
 	int cycles;
 	int nfiles;

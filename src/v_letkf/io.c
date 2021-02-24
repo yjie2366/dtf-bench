@@ -37,7 +37,7 @@ int read_hist(PD *pd, int cycle)
 			for (j = 0; j < ndims; j++) {
 				if (strchr(var->dim_name[j], 'z')) {
 					start[j] = 0;
-					count[j] = KMAX;
+					count[j] = KMAX(pd);
 				}
 				else if (strchr(var->dim_name[j], 'y')) {
 					start[j] = pd->proc_rank_y * JMAX(pd);
@@ -138,7 +138,7 @@ int read_anal(PD *pd, int cycle)
 			for (j = 0; j < ndims; j++) {
 				if (strchr(var->dim_name[j], 'z')) {
 					start[j] = 0;
-					count[j] = KMAX;
+					count[j] = KMAX(pd);
 				}
 				else if (strchr(var->dim_name[j], 'y')) {
 					start[j] = pd->proc_rank_y * JMAX(pd) + JHALO;

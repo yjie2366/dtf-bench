@@ -17,16 +17,21 @@ $0 [OPTION_1] [ARG_1] ...
 
     -h  Print help message
 
-    -n	Number of nodes
-    -p	Number of processes
+    -i	Atmos latitude (IMAX)
+    -j	Atmos longitude (JMAX)
+    -k  Atmos Height (KMAX)
+    -l  Land Height (LKMAX)
+    -u  Urban Height (UKMAX)
+    -o  Ocean Height (OKMAX)
+
+    -n	Process-per-node
+    -p	Number of processes per component
     -x	Number of processes on x-coord
     -y	Number of processes on y-coord
     -m	Number of ensembles
-    -i	Grid length on x-coord
-    -j	Grid length on y-coord
     -c	Number of I/O cycles
-    -a	Number of master processes(matcher) in DTF
-    -u	Number of runs in a row
+    -a	Number of matcher processes in DTF
+    -r	Number of runs in a row
 EOF
 }
 
@@ -48,13 +53,14 @@ if [ ! -e ${log_dir} ]; then
 	mkdir -p ${log_dir} || exit 1
 fi
 
-while getopts "n:p:i:j:c:m:a:u:x:y:h" OPT; do
+while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:h" OPT; do
 	case ${OPT} in
 	n)
-		nnodes=${OPTARG}
-		args+=("-node ${nnodes}")
+		# Number of processes per node
+		ppn=${OPTARG}
 		;;
 	p)
+		# Number of processes per comp
 		nprocs=${OPTARG}
 		args+=("-np ${nprocs}")
 		;;
@@ -63,6 +69,18 @@ while getopts "n:p:i:j:c:m:a:u:x:y:h" OPT; do
 		;;
 	j)
 		args+=("-jmax ${OPTARG}")
+		;;
+	k)
+		args+=("-kmax ${OPTARG}")
+		;;
+	l)
+		args+=("-lkmax ${OPTARG}")
+		;;
+	u)
+		args+=("-ukmax ${OPTARG}")
+		;;
+	o)
+		args+=("-okmax ${OPTARG}")
 		;;
 	c)
 		args+=("-cycles ${OPTARG}")
@@ -74,7 +92,7 @@ while getopts "n:p:i:j:c:m:a:u:x:y:h" OPT; do
 		master=${OPTARG}
 		args+=("-master ${OPTARG}")
 		;;
-	u)
+	r)
 		args+=("-run ${OPTARG}")
 		;;
 	x)
@@ -94,14 +112,11 @@ while getopts "n:p:i:j:c:m:a:u:x:y:h" OPT; do
 done
 
 if [ -z "${nprocs}" ]; then nprocs=4; fi
-if [ -z "${nnodes}" ]; then nnodes=${nprocs}; fi
+if [ -z "${ppn}" ]; then ppn=1; nnodes=${nprocs}; fi
 if [ -z "${master}" ]; then master=2; fi
 
 total_nprocs=$nprocs
-ppn=$((nprocs/nnodes))
-if [ `echo "${nprocs} % ${nnodes}"| bc` -ne 0 ]; then
-	ppn=$((ppn+1))
-fi
+nnodes=$((nprocs/ppn))
 
 if [ "${target}" = "ofp" ]; then
 	rsc_args="rscgrp=debug-flat"
@@ -109,7 +124,7 @@ if [ "${target}" = "ofp" ]; then
 elif [ "${target}" = "fugaku" ]; then
 	total_nprocs=$((nprocs*2))
 	if [ ${mck} -eq 0 ]; then
-		if [ $((nprocs*2)) -gt 385 ]; then
+		if [ ${nnodes} -gt 385 ]; then
 			rsc_args="rscgrp=eap-large"
 		else
 			rsc_args="rscgrp=eap-small"
@@ -125,11 +140,12 @@ fi
 
 batch_script="${script_dir}/batch.${target}.${nprocs}"
 elapse_time="00:30:00"
+jobname="d-${nprocs}"
 
 cat <<- EOF > ${batch_script}
 #!/bin/bash
 #
-#PJM -N "d-${nprocs}"
+#PJM -N "${jobname}"
 #PJM -L "node=${nnodes}"
 #PJM -L "${rsc_args}"
 #PJM -L "elapse=${elapse_time}"
@@ -162,5 +178,5 @@ if [ ! -d "runlog_dir" ]; then
 	mkdir -p ${runlog_dir}
 fi
 
-find ${log_dir} -maxdepth 1 -name "d-${nprocs}.${jobid}.*" -exec mv {} ${runlog_dir} \;
+find ${log_dir} -maxdepth 1 -name "${jobname}.${jobid}.*" -exec mv {} ${runlog_dir} \;
 
