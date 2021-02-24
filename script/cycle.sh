@@ -124,7 +124,6 @@ if [ "${target}" = "ofp" ]; then
 	#rsc_args="rscgrp=regular-cache"
 elif [ "${target}" = "fugaku" ]; then
 	total_nprocs=$((nprocs*2))
-	nnodes=$((total_nprocs/ppn))
 
 	if [ ${mck} -eq 0 ]; then
 		if [ ${nnodes} -gt 385 ]; then
