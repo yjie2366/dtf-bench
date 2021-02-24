@@ -1,5 +1,10 @@
 script_dir=$(cd $(dirname ${BASH_SOURCE[0]}) &> /dev/null && pwd)
+
 log_dir=${script_dir}/../log
+if [ ! -e ${log_dir} ]; then
+	mkdir -p ${log_dir} || exit 1
+fi
+
 args=()
 group=($(id -nG))
 master=
@@ -48,10 +53,6 @@ case `hostname` in
 		exit 1
 		;;
 esac
-
-if [ ! -e ${log_dir} ]; then
-	mkdir -p ${log_dir} || exit 1
-fi
 
 while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:h" OPT; do
 	case ${OPT} in
@@ -123,6 +124,8 @@ if [ "${target}" = "ofp" ]; then
 	#rsc_args="rscgrp=regular-cache"
 elif [ "${target}" = "fugaku" ]; then
 	total_nprocs=$((nprocs*2))
+	nnodes=$((total_nprocs/ppn))
+
 	if [ ${mck} -eq 0 ]; then
 		if [ ${nnodes} -gt 385 ]; then
 			rsc_args="rscgrp=eap-large"
@@ -138,9 +141,17 @@ else
 	exit 1
 fi
 
+# Batch script variables
 batch_script="${script_dir}/batch.${target}.${nprocs}"
-elapse_time="00:30:00"
+elapse_time="01:30:00"
 jobname="d-${nprocs}"
+runlog_dir="${log_dir}/run-${nprocs}-${master}"
+if [ ! -d "runlog_dir" ]; then
+	mkdir -p ${runlog_dir}
+fi
+output="${runlog_dir}/%n.%j.out"
+error="${runlog_dir}/%n.%j.err"
+stat="${runlog_dir}/%n.%j.stat"
 
 cat <<- EOF > ${batch_script}
 #!/bin/bash
@@ -151,9 +162,9 @@ cat <<- EOF > ${batch_script}
 #PJM -L "elapse=${elapse_time}"
 #PJM -g ${group[-1]}
 #PJM -S
-#PJM --spath ${log_dir}/%n.%j.stat
-#PJM -o ${log_dir}/%n.%j.out
-#PJM -e ${log_dir}/%n.%j.err
+#PJM --spath ${stat}
+#PJM -o ${output}
+#PJM -e ${error}
 #PJM --mpi "proc=${total_nprocs}"
 #	PJM --mpi "max-proc-per-node=${ppn}"
 
@@ -172,11 +183,3 @@ else
 	echo "[ERROR] Error happened in pjsub with return value: ${retval}"
 	exit
 fi
-
-runlog_dir="${log_dir}/run-${nprocs}-${master}"
-if [ ! -d "runlog_dir" ]; then
-	mkdir -p ${runlog_dir}
-fi
-
-find ${log_dir} -maxdepth 1 -name "${jobname}.${jobid}.*" -exec mv {} ${runlog_dir} \;
-
