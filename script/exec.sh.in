@@ -7,6 +7,7 @@ bin_letkf="${top_dir}/bin/letkf"
 scale_nodes=scale.nodes
 letkf_nodes=letkf.nodes
 bin_opts=()
+log_dir=${top_dir}/log
 
 trap_int()
 {
@@ -84,6 +85,10 @@ if [ -z "$member" ]; then member=2; fi
 if [ -z "$master" ]; then master=2; fi
 if [ -z "$num_run" ]; then num_run=1; fi
 
+runlog_dir="${log_dir}/run-${np}-${master}"
+output="${runlog_dir}/%n.%j.out"
+error="${runlog_dir}/%n.%j.err"
+
 # Number of processes per ensemble/member
 SCALE_NP=$((np/member))
 if [ ${master} -gt ${SCALE_NP} ];then
@@ -131,7 +136,8 @@ export MAX_WORKGROUP_SIZE=${workgroup_size}
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then # FUGAKU
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
-		mpiexec -n ${np} ${bin_scale} ${bin_opts[@]} :\
+		mpiexec -stdout ${output} -stderr ${error}\
+		       	-n ${np} ${bin_scale} ${bin_opts[@]} :\
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	else # OFP
 		# Verify Intel MPI version because the default ver.2019.5
