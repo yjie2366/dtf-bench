@@ -761,6 +761,7 @@ void init_pd(int argc, char **argv, PD **p_pd)
 	}
 
 	// DEBUG
+/*
 	for (i = 0; i < NUM_ANALDIMS; i++) {
 		fprintf(stderr, "[DEBUG] anal dim %s length: %ld\n",
 				anal_dims[i].name, anal_dims[i].length);
@@ -770,7 +771,7 @@ void init_pd(int argc, char **argv, PD **p_pd)
 		fprintf(stderr, "[DEBUG] hist dim %s length: %ld\n",
 				hist_dims[i].name, hist_dims[i].length);
 	}
-
+*/
 	init_fileinfo(pd);
 
 	/*
