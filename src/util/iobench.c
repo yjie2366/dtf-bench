@@ -673,10 +673,11 @@ void init_pd(int argc, char **argv, PD **p_pd)
 	pd->proc_rank_y = pd->ens_rank / pd->proc_num_x;
 
 	/* --------- Print Host Name ---------- */
-	char hostname[1024];
+/*	char hostname[1024];
 	gethostname(hostname, 1023);
 	fprintf(stdout, "Comp %s: rank %d is running on node %s\n",
 			comp_name, pd->world_rank, hostname);
+*/
 
 	/* Only root process print arguments */
 	if (!pd->world_rank) {
