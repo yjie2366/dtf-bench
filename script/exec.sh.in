@@ -133,16 +133,14 @@ export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
 
-# Env vars for mpiexec
-genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
-
 # Setup Intel MPI version if necessary
 if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 	# Verify Intel MPI version because the default ver.2019.5
 	# may not work for DTF
 
 	ppn_args="-ppn ${ppn}"
-	output_args=""
+	genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+
 	impi_ver=2018.0.128 # works
 	#impi_ver=2018.1.163 # works
 	#impi_ver=2018.2.199 # works
@@ -154,6 +152,7 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 	module switch intel/${impi_ver}
 	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
 else
+	genv_args="-x LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
 	output_args="-stdout ${output} -stderr ${error}"
 fi
 
