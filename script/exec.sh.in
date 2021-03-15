@@ -126,36 +126,48 @@ else
 fi
 COMMENT
 
-# only report error messages by default
+# Setup environment variables
+
 export DTF_VERBOSE_LEVEL=0
 export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
 
+# Env vars for mpiexec
+genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+
+# Setup Intel MPI version if necessary
+if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
+	# Verify Intel MPI version because the default ver.2019.5
+	# may not work for DTF
+
+	ppn_args="-ppn ${ppn}"
+	output_args=""
+	impi_ver=2018.0.128 # works
+	#impi_ver=2018.1.163 # works
+	#impi_ver=2018.2.199 # works
+
+	#impi_ver=2018.3.222 # NOT work NOT stable
+	#impi_ver=2019.1.144 # NOT work
+	#impi_ver=2019.3.199 # NOT work
+
+	module switch intel/${impi_ver}
+	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
+else
+	output_args="-stdout ${output} -stderr ${error}"
+fi
+
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
-	if [ -n "${SPLIT_WRAPPER}" ]; then # FUGAKU
-		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
-		mpiexec -stdout ${output} -stderr ${error}\
+	if [ -n "${SPLIT_WRAPPER}" ]; then
+		mpiexec ${output_args} ${genv_args} ${ppn_args}\
 		       	-n ${np} ${bin_scale} ${bin_opts[@]} :\
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
-	else # OFP
-		# Verify Intel MPI version because the default ver.2019.5
-	        # may not work for DTF
-
-		impi_ver=2018.0.128 # works
-		#impi_ver=2018.1.163 # works
-		#impi_ver=2018.2.199 # works
-			
-		#impi_ver=2018.3.222 # NOT work NOT stable
-		#impi_ver=2019.1.144 # NOT work
-		#impi_ver=2019.3.199 # NOT work
-
-		module switch intel/${impi_ver}
-		echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
-
-		mpiexec -n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
-		mpiexec	-n ${np} ${mfargs_letkf} ${bin_letkf} ${bin_opts[@]}
+	else 
+		mpiexec ${output_args} ${genv_args} ${ppn_args} \
+			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
+		mpiexec	${output_args} ${genv_args} ${ppn_args} \
+			-n ${np} ${mfargs_letkf} ${bin_letkf} ${bin_opts[@]}
 	fi
 
 	if [ "$?" -ne 0 ]; then
