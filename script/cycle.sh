@@ -141,7 +141,7 @@ fi
 
 # Batch script variables
 batch_script="${script_dir}/batch.${target}.${nprocs}"
-elapse_time="00:30:00"
+elapse_time="03:30:00"
 jobname="d-${nprocs}"
 runlog_dir="${log_dir}/run-${nprocs}-${master}"
 if [ ! -d "runlog_dir" ]; then
