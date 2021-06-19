@@ -29,7 +29,7 @@ $0 [OPTION_1] [ARG_1] ...
     -u  Urban Height (UKMAX)
     -o  Ocean Height (OKMAX)
 
-    -n	Process-per-node
+    -n	Process-per-node (PPN)
     -p	Number of processes per component
     -x	Number of processes on x-coord
     -y	Number of processes on y-coord
@@ -63,7 +63,6 @@ while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:h" OPT; do
 	p)
 		# Number of processes per comp
 		nprocs=${OPTARG}
-		args+=("-np ${nprocs}")
 		;;
 	i)
 		args+=("-imax ${OPTARG}")
@@ -87,20 +86,21 @@ while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:h" OPT; do
 		args+=("-cycles ${OPTARG}")
 		;;
 	m)
-		args+=("-member ${OPTARG}")
+		member=${OPTARG}
 		;;
 	a)
 		master=${OPTARG}
-		args+=("-master ${OPTARG}")
 		;;
 	r)
 		args+=("-run ${OPTARG}")
 		;;
 	x)
-		args+=("-px ${OPTARG}")
+		px=${OPTARG}
+		args+=("-px ${px}")
 		;;
 	y)
-		args+=("-py ${OPTARG}")
+		py=${OPTARG}
+		args+=("-py ${py}")
 		;;
 	h)
 		usage
@@ -112,12 +112,27 @@ while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:h" OPT; do
 	esac
 done
 
-if [ -z "${nprocs}" ]; then nprocs=4; fi
-if [ -z "${ppn}" ]; then ppn=1; nnodes=${nprocs}; fi
 if [ -z "${master}" ]; then master=2; fi
+if [ -z "${member}" ]; then member=2; fi
 
+if [ -z "${nprocs}" ]; then
+	if [ -z "${px}" -a -z "${py}" ]; then
+		nprocs=4
+	else
+		nprocs=$((px*py*member))
+	fi
+fi
+# Add number of process per comp into argument list
+args+=("-member ${member}")
+args+=("-master ${master}")
+args+=("-np ${nprocs}")
 total_nprocs=$((nprocs*2))
-nnodes=$((total_nprocs/ppn))
+
+if [ -z "${ppn}" ]; then
+	ppn=1; nnodes=${total_nprocs}
+else
+	nnodes=$((total_nprocs/ppn))
+fi
 
 if [ "${target}" = "ofp" ]; then
 	rsc_args="rscgrp=debug-cache"
@@ -126,9 +141,11 @@ elif [ "${target}" = "fugaku" ]; then
 
 	if [ ${mck} -eq 0 ]; then
 		if [ ${nnodes} -gt 385 ]; then
-			rsc_args="rscgrp=eap-large"
+			#rsc_args="rscgrp=eap-large"
+			rsc_args="rscgrp=large"
 		else
-			rsc_args="rscgrp=eap-small"
+			#rsc_args="rscgrp=eap-small"
+			rsc_args="rscgrp=small"
 		fi
 	else
 		# mckernel resource group
@@ -139,11 +156,13 @@ else
 	exit 1
 fi
 
+#echo ${args[@]}
+
 # Batch script variables
-batch_script="${script_dir}/batch.${target}.${nprocs}"
+batch_script="${script_dir}/batch.${target}.${nprocs}.${member}"
 elapse_time="03:30:00"
-jobname="d-${nprocs}"
-runlog_dir="${log_dir}/run-${nprocs}-${master}"
+jobname="d-${nprocs}-${member}"
+runlog_dir="${log_dir}/run-${nprocs}-${master}-${member}"
 if [ ! -d "runlog_dir" ]; then
 	mkdir -p ${runlog_dir}
 fi
