@@ -153,7 +153,10 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
 else
 	export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
-	output_args="-stdout ${output} -stderr ${error}"
+	export PLE_MPI_STD_EMPTYFILE="off"
+
+	# Stop printf to the same log files
+	#output_args="-stdout ${output} -stderr ${error}"
 fi
 
 # Start executing benchmark binaries
