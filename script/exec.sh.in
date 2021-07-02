@@ -141,13 +141,14 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 	ppn_args="-ppn ${ppn}"
 	genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
 
-	impi_ver=2018.0.128 # works
+	#impi_ver=2018.0.128 # works
 	#impi_ver=2018.1.163 # works
 	#impi_ver=2018.2.199 # works
 
 	#impi_ver=2018.3.222 # NOT work NOT stable
 	#impi_ver=2019.1.144 # NOT work
 	#impi_ver=2019.3.199 # NOT work
+	impi_ver=2020.4.304 
 
 	module switch intel/${impi_ver}
 	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"

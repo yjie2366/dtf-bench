@@ -135,8 +135,8 @@ else
 fi
 
 if [ "${target}" = "ofp" ]; then
-	rsc_args="rscgrp=debug-cache"
-	#rsc_args="rscgrp=regular-cache"
+	#rsc_args="rscgrp=debug-cache"
+	rsc_args="rscgrp=regular-flat"
 elif [ "${target}" = "fugaku" ]; then
 
 	if [ ${mck} -eq 0 ]; then
