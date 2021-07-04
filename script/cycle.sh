@@ -13,6 +13,13 @@ ppn=
 nnodes=
 mck=${mck:=0}
 
+# Switch for LLIO 
+enable_llio=0
+bin_scale=${script_dir}/../bin/scale
+bin_letkf=${script_dir}/../bin/letkf
+info_anal=${script_dir}/../info/anal.info
+info_hist=${script_dir}/../info/hist.info
+
 usage()
 {
 cat << EOF
@@ -37,6 +44,8 @@ $0 [OPTION_1] [ARG_1] ...
     -c	Number of I/O cycles
     -a	Number of matcher processes in DTF
     -r	Number of runs in a row
+
+    -b  Enable LLIO for DTF file-IO mode
 EOF
 }
 
@@ -54,7 +63,7 @@ case `hostname` in
 		;;
 esac
 
-while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:h" OPT; do
+while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:hb" OPT; do
 	case ${OPT} in
 	n)
 		# Number of processes per node
@@ -106,6 +115,10 @@ while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:h" OPT; do
 		usage
 		exit
 		;;
+	b)
+		enable_llio=1
+		args+=("-llio")
+		;;
 	?)
 		echo "[ERROR] Invalid option"
 		exit 1
@@ -156,7 +169,7 @@ else
 	exit 1
 fi
 
-#echo ${args[@]}
+echo ${args[@]}
 
 # Batch script variables
 batch_script="${script_dir}/batch.${target}.${nprocs}.${member}"
@@ -184,6 +197,9 @@ cat <<- EOF > ${batch_script}
 #PJM -e ${error}
 #PJM --mpi "proc=${total_nprocs}"
 #PJM --mpi "max-proc-per-node=${ppn}"
+`if [ ${enable_llio} -eq 1 ]; then
+echo -e "#PJM --llio sharedtmp-size=10Gi\n\n"
+fi`
 
 sh ${script_dir}/exec.sh ${args[@]}
 

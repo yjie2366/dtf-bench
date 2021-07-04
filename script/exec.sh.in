@@ -8,6 +8,11 @@ scale_nodes=scale.nodes
 letkf_nodes=letkf.nodes
 bin_opts=()
 log_dir=${top_dir}/log
+data_path=${top_dir}/data  #Default path
+dtf_config=${top_dir}/dtf.ini
+
+genv_args=()
+enable_llio=0
 
 trap_int()
 {
@@ -74,6 +79,9 @@ for opts; do
 		master)
 			master=$1
 			;;
+		llio)
+			enable_llio=1
+			;;
 		*)
 			echo "$0 [ERROR]: Invalid option -$opts"
 			exit
@@ -132,6 +140,18 @@ export DTF_VERBOSE_LEVEL=0
 export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
+# Setup output data files path if LLIO is enabled
+if [ ${enable_llio} -eq 1 ]; then
+	data_path=${PJM_SHAREDTMP}
+	export DATA_PATH=${data_path}
+	echo "Data will be temporarily stored in ${DATA_PATH}"
+fi
+
+#Replace DATA_PATH in dtf configuration file
+if [ -e ${dtf_config} ]; then rm ${dtf_config}; fi
+cp ${dtf_config}.in ${dtf_config}
+tmp_path=$(echo ${data_path} | sed 's/\//\\\//g')
+sed -i "s/DATA_PATH/${tmp_path}/g" ${dtf_config}
 
 # Setup Intel MPI version if necessary
 if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
