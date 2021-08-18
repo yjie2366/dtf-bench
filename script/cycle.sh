@@ -36,6 +36,7 @@ $0 [OPTION_1] [ARG_1] ...
     -u  Urban Height (UKMAX)
     -o  Ocean Height (OKMAX)
 
+    -t  Transfer mode [file|transfer]
     -n	Process-per-node (PPN)
     -p	Number of processes per component
     -x	Number of processes on x-coord
@@ -63,7 +64,7 @@ case `hostname` in
 		;;
 esac
 
-while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:hb" OPT; do
+while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:t:hb" OPT; do
 	case ${OPT} in
 	n)
 		# Number of processes per node
@@ -99,6 +100,9 @@ while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:hb" OPT; do
 		;;
 	a)
 		master=${OPTARG}
+		;;
+	t)
+		args+=("-mode ${OPTARG}")
 		;;
 	r)
 		args+=("-run ${OPTARG}")

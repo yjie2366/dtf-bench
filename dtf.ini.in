@@ -8,7 +8,7 @@ buffer_data=0
 filename="DATA_PATH/%/%.anal.nc"
 comp1="v_scale"
 comp2="v_letkf"
-mode="file"
+mode="MODE"
 num_sessions=2
 replay_io=1
 mirror_io_root=1
@@ -17,7 +17,7 @@ mirror_io_root=1
 filename="DATA_PATH/%/%.hist.nc"
 comp1="v_scale"
 comp2="v_letkf"
-mode="file"
+mode="MODE"
 replay_io=1
 mirror_io_root=1
 

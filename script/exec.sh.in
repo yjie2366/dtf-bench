@@ -11,6 +11,7 @@ log_dir=${top_dir}/log
 data_path=${top_dir}/data  #Default path
 dtf_config=${top_dir}/dtf.ini
 
+mode=transfer	# Transfer mode by default
 genv_args=()
 enable_llio=0
 
@@ -75,6 +76,13 @@ for opts; do
 			;;
 		run)
 			num_run=$1
+			;;
+		mode)
+			mode=$1
+			if [ "${mode}" != "transfer" -a "${mode}" != "file" ]; then
+				echo "[ERROR] Designated transfer mode is not supported"
+				exit -1
+			fi
 			;;
 		master)
 			master=$1
@@ -152,6 +160,7 @@ if [ -e ${dtf_config} ]; then rm ${dtf_config}; fi
 cp ${dtf_config}.in ${dtf_config}
 tmp_path=$(echo ${data_path} | sed 's/\//\\\//g')
 sed -i "s/DATA_PATH/${tmp_path}/g" ${dtf_config}
+sed -i "s/MODE/${mode}/g" ${dtf_config}
 
 # Setup Intel MPI version if necessary
 if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
@@ -159,7 +168,9 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 	# may not work for DTF
 
 	ppn_args="-ppn ${ppn}"
-	genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+	if [ -n "${SPLIT_WRAPPER}" ]; then
+		genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+	fi
 
 	#impi_ver=2018.0.128 # works
 	#impi_ver=2018.1.163 # works
@@ -173,7 +184,9 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 	module switch intel/${impi_ver}
 	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
 else
-	export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
+	if [ -n "${SPLIT_WRAPPER}" ]; then
+		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
+	fi
 	export PLE_MPI_STD_EMPTYFILE="off"
 
 	# Stop printf to the same log files
