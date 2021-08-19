@@ -12,8 +12,10 @@ data_path=${top_dir}/data  #Default path
 dtf_config=${top_dir}/dtf.ini
 
 mode=transfer	# Transfer mode by default
+MPIEXEC=mpiexec
 genv_args=()
 enable_llio=0
+enable_mckernel=0
 
 trap_int()
 {
@@ -89,6 +91,10 @@ for opts; do
 			;;
 		llio)
 			enable_llio=1
+			;;
+		mck)
+			enable_mckernel=1
+			MCK_PATH="$1"
 			;;
 		*)
 			echo "$0 [ERROR]: Invalid option -$opts"
@@ -179,9 +185,19 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 	#impi_ver=2018.3.222 # NOT work NOT stable
 	#impi_ver=2019.1.144 # NOT work
 	#impi_ver=2019.3.199 # NOT work
-	impi_ver=2020.4.304 
+	if [ "${enable_mckernel}" -eq 0 ]; then
+		impi_ver=2020.4.304 
+	else
+		impi_ver=2018.1.163
+		export PATH="${MCK_PATH}:${PATH}"
+		export HFI_NO_CPUAFFINITY=1
+		export KMP_AFFINITY=compact
+		export OMP_NUM_THREADS=4
+		MPIEXEC="mpimcexec"
+	fi
 
-	module switch intel/${impi_ver}
+	module purge
+	module load intel/${impi_ver}
 	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
 else
 	if [ -n "${SPLIT_WRAPPER}" ]; then
@@ -196,13 +212,13 @@ fi
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then
-		mpiexec ${output_args} ${genv_args} ${ppn_args}\
+		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args}\
 		       	-n ${np} ${bin_scale} ${bin_opts[@]} :\
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	else 
-		mpiexec ${output_args} ${genv_args} ${ppn_args} \
+		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} \
 			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
-		mpiexec	${output_args} ${genv_args} ${ppn_args} \
+		${MPIEXEC}	${output_args} ${genv_args} ${ppn_args} \
 			-n ${np} ${mfargs_letkf} ${bin_letkf} ${bin_opts[@]}
 	fi
 

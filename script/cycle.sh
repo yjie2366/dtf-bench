@@ -11,10 +11,13 @@ master=
 target=
 ppn=
 nnodes=
-mck=${mck:=0}
+MCK_PATH=
+MCK_MEM=
 
 # Switch for LLIO 
 enable_llio=0
+enable_mckernel=0
+
 bin_scale=${script_dir}/../bin/scale
 bin_letkf=${script_dir}/../bin/letkf
 info_anal=${script_dir}/../info/anal.info
@@ -47,6 +50,7 @@ $0 [OPTION_1] [ARG_1] ...
     -r	Number of runs in a row
 
     -b  Enable LLIO for DTF file-IO mode
+    -d  Enable McKernel execution
 EOF
 }
 
@@ -64,7 +68,7 @@ case `hostname` in
 		;;
 esac
 
-while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:t:hb" OPT; do
+while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:t:d:hb" OPT; do
 	case ${OPT} in
 	n)
 		# Number of processes per node
@@ -123,6 +127,14 @@ while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:t:hb" OPT; do
 		enable_llio=1
 		args+=("-llio")
 		;;
+	d)
+		enable_mckernel=1
+		if [ "${target}" = "ofp" ]; then
+			MCK_PATH=${OPTARG}
+			MCK_MEM="48G@0,all@1"
+		fi
+		args+=("-mck ${MCK_PATH}")
+		;;
 	?)
 		echo "[ERROR] Invalid option"
 		exit 1
@@ -155,8 +167,7 @@ if [ "${target}" = "ofp" ]; then
 	#rsc_args="rscgrp=debug-cache"
 	rsc_args="rscgrp=regular-flat"
 elif [ "${target}" = "fugaku" ]; then
-
-	if [ ${mck} -eq 0 ]; then
+	if [ ${enable_mckernel} -eq 0 ]; then
 		if [ ${nnodes} -gt 385 ]; then
 			#rsc_args="rscgrp=eap-large"
 			rsc_args="rscgrp=large"
@@ -172,8 +183,6 @@ else
 	echo "[ERROR] Unsupported Machine"
 	exit 1
 fi
-
-echo ${args[@]}
 
 # Batch script variables
 batch_script="${script_dir}/batch.${target}.${nprocs}.${member}"
@@ -194,7 +203,7 @@ cat <<- EOF > ${batch_script}
 #PJM -L "node=${nnodes}"
 #PJM -L "${rsc_args}"
 #PJM -L "elapse=${elapse_time}"
-#PJM -g ${group[-1]}
+#PJM -g ${group[-2]}
 #PJM -S
 #PJM --spath ${stat}
 #PJM -o ${output}
@@ -202,7 +211,12 @@ cat <<- EOF > ${batch_script}
 #PJM --mpi "proc=${total_nprocs}"
 #PJM --mpi "max-proc-per-node=${ppn}"
 `if [ ${enable_llio} -eq 1 ]; then
-echo -e "#PJM --llio sharedtmp-size=10Gi\n\n"
+echo -e "#PJM --llio sharedtmp-size=10Gi"
+else echo "#"
+fi`
+`if [ ${enable_mckernel} -eq 1 -a ${target} = "ofp" ]; then
+echo "#PJM -x MCK=\"${MCK_PATH}\""
+echo "#PJM -x MCK_MEM=\"${MCK_MEM}\""
 fi`
 
 sh ${script_dir}/exec.sh ${args[@]}
