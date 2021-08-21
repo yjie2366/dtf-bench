@@ -76,6 +76,9 @@ for opts; do
 		np)
 			np=$1
 			;;
+		ppn)
+			ppn=$1
+			;;
 		run)
 			num_run=$1
 			;;
@@ -122,12 +125,10 @@ echo "Designated number of matcher: ${master}"
 echo "Every ${workgroup_size} procs handled by a master process"
 echo "Benchmark will run ${num_run} time(s)..."
 
-ppn=${PJM_PROC_BY_NODE}
-if [ -n "${ppn}" ]; then
-	echo "Number of processes per node: ${ppn}"
-else
-	echo "[WARNING] Unable to retrieve ppn information"
+if [ -z "${ppn}" ]; then
+	ppn=${PJM_PROC_BY_NODE}
 fi
+echo "Number of processes per node: ${ppn}"
 
 # Fugaku does not support this environment variable (Intel MPI only)
 : << COMMENT
@@ -175,7 +176,11 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 
 	ppn_args="-ppn ${ppn}"
 	if [ -n "${SPLIT_WRAPPER}" ]; then
-		genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+		if [ ${enable_mckernel} -eq 0 ]; then
+			genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+		else
+			genv_args="-env LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+		fi
 	fi
 
 	#impi_ver=2018.0.128 # works

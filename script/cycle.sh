@@ -162,6 +162,7 @@ if [ -z "${ppn}" ]; then
 else
 	nnodes=$((total_nprocs/ppn))
 fi
+args+=(-ppn ${ppn})
 
 if [ "${target}" = "ofp" ]; then
 	#rsc_args="rscgrp=debug-cache"
@@ -209,7 +210,6 @@ cat <<- EOF > ${batch_script}
 #PJM -o ${output}
 #PJM -e ${error}
 #PJM --mpi "proc=${total_nprocs}"
-#PJM --mpi "max-proc-per-node=${ppn}"
 `if [ ${enable_llio} -eq 1 ]; then
 echo -e "#PJM --llio sharedtmp-size=10Gi"
 else echo "#"
@@ -217,6 +217,8 @@ fi`
 `if [ ${enable_mckernel} -eq 1 -a ${target} = "ofp" ]; then
 echo "#PJM -x MCK=\"${MCK_PATH}\""
 echo "#PJM -x MCK_MEM=\"${MCK_MEM}\""
+else
+echo "#PJM --mpi \"max-proc-per-node=${ppn}\""
 fi`
 
 sh ${script_dir}/exec.sh ${args[@]}
