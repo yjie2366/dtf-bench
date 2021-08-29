@@ -43,3 +43,4 @@ bpconf.h
 batch.*
 *.err
 dtf.ini
+*.nodes
