@@ -11,11 +11,25 @@ log_dir=${top_dir}/log
 data_path=${top_dir}/data  #Default path
 dtf_config=${top_dir}/dtf.ini
 
+target=
 mode=transfer	# Transfer mode by default
 MPIEXEC=mpiexec
-genv_args=()
+genv_args=
 enable_llio=0
 enable_mckernel=0
+
+case `hostname` in
+	*ofp*)
+		target=ofp
+		;;
+	fn01sv*)
+		target=fugaku
+		;;
+	*)
+		echo "[ERROR] Unsupported Machine"
+		exit 1
+		;;
+esac
 
 trap_int()
 {
@@ -130,25 +144,6 @@ if [ -z "${ppn}" ]; then
 fi
 echo "Number of processes per node: ${ppn}"
 
-# Fugaku does not support this environment variable (Intel MPI only)
-: << COMMENT
-# Setup machine files (OFP)
-find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
-
-if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
-	cat ${I_MPI_HYDRA_HOST_FILE} | head -n ${nnodes} > ${scale_nodes}
-	cat ${I_MPI_HYDRA_HOST_FILE} | tail -n ${nnodes} > ${letkf_nodes}
-
-	append_ppn ${scale_nodes} ${ppn}
-	append_ppn ${letkf_nodes} ${ppn}
-
-	mfargs_scale="-machinefile ${scale_nodes}"
-	mfargs_letkf="-machinefile ${letkf_nodes}"
-else
-	echo "[Warning] machine file will be ignored"
-fi
-COMMENT
-
 # Setup environment variables
 
 export DTF_VERBOSE_LEVEL=0
@@ -163,14 +158,14 @@ if [ ${enable_llio} -eq 1 ]; then
 fi
 
 #Replace DATA_PATH in dtf configuration file
-if [ -e ${dtf_config} ]; then rm ${dtf_config}; fi
-cp ${dtf_config}.in ${dtf_config}
-tmp_path=$(echo ${data_path} | sed 's/\//\\\//g')
-sed -i "s/DATA_PATH/${tmp_path}/g" ${dtf_config}
-sed -i "s/MODE/${mode}/g" ${dtf_config}
+if [ ! -e "${dtf_config}" -o "${mode}" = "file" ]; then
+	tmp_path=$(echo ${data_path} | sed 's/\//\\\//g')
+	sed  "s/DATA_PATH/${tmp_path}/g" ${dtf_config}.in > ${dtf_config}
+	sed -i "s/MODE/${mode}/g" ${dtf_config}
+fi	
 
 # Setup Intel MPI version if necessary
-if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
+if [ "${target}" = "ofp" ]; then
 	# Verify Intel MPI version because the default ver.2019.5
 	# may not work for DTF
 
@@ -179,7 +174,9 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 		if [ ${enable_mckernel} -eq 0 ]; then
 			genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
 		else
-			genv_args="-env LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+			#env_args="-env LD_PRELOAD ${SPLIT_WRAPPER}/libsplitworld.so"
+			#export LD_PRELOAD does not work. It will cause MPI error 
+			unset SPLIT_WRAPPER # McKernel does not work with wrapper
 		fi
 	fi
 
@@ -194,11 +191,12 @@ if [[ "$(which mpiexec)" =~ .*"intel".* ]]; then
 		impi_ver=2020.4.304 
 	else
 		impi_ver=2018.1.163
-		export PATH="${MCK_PATH}:${PATH}"
+		export PATH="${MCK_PATH}/bin:${PATH}"
 		export HFI_NO_CPUAFFINITY=1
 		export KMP_AFFINITY=compact
 		export OMP_NUM_THREADS=4
 		MPIEXEC="mpimcexec"
+		echo "Job will be running on McKernel using ${MPIEXEC}"
 	fi
 
 	module purge
@@ -214,16 +212,37 @@ else
 	#output_args="-stdout ${output} -stderr ${error}"
 fi
 
+# Generate hostfiles for Intel MPI
+#: << COMMENT
+# Setup machine files (OFP)
+find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
+
+if [ "${enable_mckernel}" -eq 1 -o -z "${SPLIT_WRAPPER}" ]; then
+	if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
+		cat ${I_MPI_HYDRA_HOST_FILE} | head -n $((np/ppn)) > ${scale_nodes}
+		cat ${I_MPI_HYDRA_HOST_FILE} | tail -n $((np/ppn)) > ${letkf_nodes}
+		
+		mfargs_scale="--hostfile ${scale_nodes}"
+		mfargs_letkf="--hostfile ${letkf_nodes}"
+	else
+		echo "[WARNING] No hostfile found."
+	fi
+else
+	echo "[Warning] machine file will be ignored"
+fi
+#COMMENT
+
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args}\
 		       	-n ${np} ${bin_scale} ${bin_opts[@]} :\
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
-	else 
+	else
+		# Intel MPI will run different mpiexec processes on the same nodes
 		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} \
 			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
-		${MPIEXEC}	${output_args} ${genv_args} ${ppn_args} \
+		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} \
 			-n ${np} ${mfargs_letkf} ${bin_letkf} ${bin_opts[@]}
 	fi
 

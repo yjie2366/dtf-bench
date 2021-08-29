@@ -130,7 +130,7 @@ while getopts "n:p:i:j:k:l:u:o:c:m:a:r:x:y:t:d:hb" OPT; do
 	d)
 		enable_mckernel=1
 		if [ "${target}" = "ofp" ]; then
-			MCK_PATH=${OPTARG}
+			MCK_PATH="${OPTARG}"
 			MCK_MEM="48G@0,all@1"
 		fi
 		args+=("-mck ${MCK_PATH}")
@@ -167,6 +167,7 @@ args+=(-ppn ${ppn})
 if [ "${target}" = "ofp" ]; then
 	#rsc_args="rscgrp=debug-cache"
 	rsc_args="rscgrp=regular-flat"
+	#rsc_args="rscgrp=MCK-FLAT-QUADRANT"
 elif [ "${target}" = "fugaku" ]; then
 	if [ ${enable_mckernel} -eq 0 ]; then
 		if [ ${nnodes} -gt 385 ]; then
