@@ -13,10 +13,13 @@ dtf_config=${top_dir}/dtf.ini
 
 target=
 mode=transfer	# Transfer mode by default
-MPIEXEC=mpiexec
+MPIEXEC=@MPIEXEC@  # Specify which mpiexec to use
+launcher=@LAUNCHER@
 genv_args=
+bind_args=
 enable_llio=0
 enable_mckernel=0
+core_bind=0
 
 case `hostname` in
 	*ofp*)
@@ -195,13 +198,19 @@ if [ "${target}" = "ofp" ]; then
 		export HFI_NO_CPUAFFINITY=1
 		export KMP_AFFINITY=compact
 		export OMP_NUM_THREADS=4
-		MPIEXEC="mpimcexec"
-		echo "Job will be running on McKernel using ${MPIEXEC}"
 	fi
 
 	module purge
 	module load intel/${impi_ver}
 	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
+
+	if [ -n "${launcher}" ]; then
+		launcher_arg="-launcher-exec ${launcher}"
+	fi
+
+	if [ "${core_bind}" -ne 0 ] || [[ ${MPIEXEC} =~ .*pip.* ]]; then
+		bind_args="-bind-to core"
+	fi
 else
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		export LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so
@@ -235,14 +244,14 @@ fi
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then
-		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args}\
+		${MPIEXEC} ${output_args} ${genv_args} ${launcher_arg} ${ppn_args}\
 		       	-n ${np} ${bin_scale} ${bin_opts[@]} :\
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	else
 		# Intel MPI will run different mpiexec processes on the same nodes
-		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} \
+		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
 			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
-		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} \
+		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
 			-n ${np} ${mfargs_letkf} ${bin_letkf} ${bin_opts[@]}
 	fi
 

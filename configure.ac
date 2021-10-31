@@ -1,12 +1,17 @@
 AC_INIT([dtf-bench], [1.0])
 
+AC_ARG_VAR(MPIEXEC, Command for executing MPI programs)
+AC_ARG_VAR(LAUNCHER, Launcher for launching MPI processes)
 AC_ARG_VAR(MPICC, MPI C Compiler)
 AC_ARG_VAR(CC, Overwritten by MPICC if MPICC is set)
 if test "x$MPICC"  = x && test "x$CC"  != x ; then MPICC=$CC; fi
 if test "x$MPICC" = x && test "x$CC" = x; then MPICC=mpiicc; fi
+if test "x$MPIEXEC" = x; then MPIEXEC="mpiexec"; fi
 
 CC=${MPICC}
 AC_SUBST(MPICC)
+AC_SUBST(MPIEXEC)
+AC_SUBST(LAUNCHER)
 AC_PROG_CC
 
 AC_ARG_WITH([pnetcdf], AC_HELP_STRING([--with-pnetcdf=<PNETCDF-INSTALL-PATH>], [To Specify PnetCDF Install Path]),,)
