@@ -45,3 +45,6 @@ batch.*
 *.err
 dtf.ini
 *.nodes
+compile
+install-sh
+missing
