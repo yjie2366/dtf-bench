@@ -37,6 +37,7 @@ log/
 data/
 *.cache
 Makefile
+configure
 config.*
 port_*
 bpconf.h

@@ -9,9 +9,6 @@ if test "x$MPICC" = x && test "x$CC" = x; then MPICC=mpiicc; fi
 if test "x$MPIEXEC" = x; then MPIEXEC="mpiexec"; fi
 
 CC=${MPICC}
-AC_SUBST(MPICC)
-AC_SUBST(MPIEXEC)
-AC_SUBST(LAUNCHER)
 AC_PROG_CC
 
 AC_ARG_WITH([pnetcdf], AC_HELP_STRING([--with-pnetcdf=<PNETCDF-INSTALL-PATH>], [To Specify PnetCDF Install Path]),,)
@@ -38,6 +35,9 @@ fi
 AC_SUBST(split_wrapper)
 AC_SUBST(pnetcdf_ins)
 AC_SUBST(dtf_ins)
+AC_SUBST(MPICC)
+AC_SUBST(MPIEXEC)
+AC_SUBST(LAUNCHER)
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([src/Makefile])
