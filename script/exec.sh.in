@@ -200,9 +200,32 @@ if [ "${target}" = "ofp" ]; then
 		export OMP_NUM_THREADS=4
 	fi
 
+	# Generate hostfiles from Intel MPI environment variable
+	#: << COMMENT
+	# Setup machine files (OFP)
+	find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
+
+	if [ -z "${SPLIT_WRAPPER}" ]; then
+		if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
+			cat ${I_MPI_HYDRA_HOST_FILE} | head -n $((np/ppn)) > ${scale_nodes}
+			cat ${I_MPI_HYDRA_HOST_FILE} | tail -n $((np/ppn)) > ${letkf_nodes}
+			
+			mfargs_scale="-f ${scale_nodes}"
+			mfargs_letkf="-f ${letkf_nodes}"
+		else
+			echo "[WARNING] No hostfile found."
+		fi
+	else
+		echo "[Warning] machine file will be ignored"
+	fi
+	#COMMENT
+
 	module purge
-	module load intel/${impi_ver}
-	echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
+
+	if [[ ! ${MPIEXEC} =~ .*pip.* ]]; then
+		module load intel/${impi_ver}
+		echo "Intel MPI version: $(which mpiexec | grep -oE "[0-9]+.[0-9]+.[0-9]+")"
+	fi
 
 	if [ -n "${launcher}" ]; then
 		launcher_arg="-launcher-exec ${launcher}"
@@ -221,25 +244,6 @@ else
 	#output_args="-stdout ${output} -stderr ${error}"
 fi
 
-# Generate hostfiles for Intel MPI
-#: << COMMENT
-# Setup machine files (OFP)
-find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
-
-if [ "${enable_mckernel}" -eq 1 -o -z "${SPLIT_WRAPPER}" ]; then
-	if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
-		cat ${I_MPI_HYDRA_HOST_FILE} | head -n $((np/ppn)) > ${scale_nodes}
-		cat ${I_MPI_HYDRA_HOST_FILE} | tail -n $((np/ppn)) > ${letkf_nodes}
-		
-		mfargs_scale="--hostfile ${scale_nodes}"
-		mfargs_letkf="--hostfile ${letkf_nodes}"
-	else
-		echo "[WARNING] No hostfile found."
-	fi
-else
-	echo "[Warning] machine file will be ignored"
-fi
-#COMMENT
 
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
@@ -249,6 +253,9 @@ for run in `seq 1 ${num_run}`; do
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	else
 		# Intel MPI will run different mpiexec processes on the same nodes
+		echo ${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
+			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]}
+
 		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
 			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
 		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
