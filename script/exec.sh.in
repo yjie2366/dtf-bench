@@ -253,6 +253,7 @@ for run in `seq 1 ${num_run}`; do
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	else
 		# Intel MPI will run different mpiexec processes on the same nodes
+		ldd ${bin_scale}
 		echo ${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
 			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]}
 
