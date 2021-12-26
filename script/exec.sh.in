@@ -149,7 +149,7 @@ echo "Number of processes per node: ${ppn}"
 
 # Setup environment variables
 
-export DTF_VERBOSE_LEVEL=0
+export DTF_VERBOSE_LEVEL=-1 # No output from DTF by default
 export DTF_GLOBAL_PATH=${top_dir}
 export DTF_IGNORE_IDLE=1
 export MAX_WORKGROUP_SIZE=${workgroup_size}
@@ -232,7 +232,8 @@ if [ "${target}" = "ofp" ]; then
 	fi
 
 	if [ "${core_bind}" -ne 0 ] || [[ ${MPIEXEC} =~ .*pip.* ]]; then
-		bind_args="-bind-to core"
+		#bind_args="-bind-to core"
+		bind_args="-bind-to rr" # bind processes to cores by round-robin
 	fi
 else
 	if [ -n "${SPLIT_WRAPPER}" ]; then
@@ -253,7 +254,7 @@ for run in `seq 1 ${num_run}`; do
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	else
 		# Intel MPI will run different mpiexec processes on the same nodes
-		ldd ${bin_scale}
+		ldd ${bin_scale} # output linked libraries by default
 		echo ${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
 			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]}
 
