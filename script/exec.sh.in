@@ -175,7 +175,8 @@ if [ "${target}" = "ofp" ]; then
 	ppn_args="-ppn ${ppn}"
 	if [ -n "${SPLIT_WRAPPER}" ]; then
 		if [ ${enable_mckernel} -eq 0 ]; then
-			genv_args="-genv LD_PRELOAD=${SPLIT_WRAPPER}/libsplitworld.so"
+			genv_args="-genv LD_PRELOAD ${SPLIT_WRAPPER}/libsplitworld.so"
+			#env_args="-env LD_PRELOAD ${SPLIT_WRAPPER}/libsplitworld.so"
 		else
 			#env_args="-env LD_PRELOAD ${SPLIT_WRAPPER}/libsplitworld.so"
 			#export LD_PRELOAD does not work. It will cause MPI error 
@@ -205,18 +206,20 @@ if [ "${target}" = "ofp" ]; then
 	# Setup machine files (OFP)
 	find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
 
-	if [ -z "${SPLIT_WRAPPER}" ]; then
-		if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
+	# set hostfile
+	if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
+
+		if [ -n "${SPLIT_WRAPPER}" ]; then
+			hosts_global="-f ${I_MPI_HYDRA_HOST_FILE}"
+		else
 			cat ${I_MPI_HYDRA_HOST_FILE} | head -n $((np/ppn)) > ${scale_nodes}
 			cat ${I_MPI_HYDRA_HOST_FILE} | tail -n $((np/ppn)) > ${letkf_nodes}
 			
-			mfargs_scale="-f ${scale_nodes}"
-			mfargs_letkf="-f ${letkf_nodes}"
-		else
-			echo "[WARNING] No hostfile found."
+			hosts_scale="-f ${scale_nodes}"
+			hosts_letkf="-f ${letkf_nodes}"
 		fi
 	else
-		echo "[Warning] machine file will be ignored"
+		echo "[WARNING] No hostfile found."
 	fi
 	#COMMENT
 
@@ -249,19 +252,24 @@ fi
 # Start executing benchmark binaries
 for run in `seq 1 ${num_run}`; do
 	if [ -n "${SPLIT_WRAPPER}" ]; then
-		${MPIEXEC} ${output_args} ${genv_args} ${launcher_arg} ${ppn_args} ${bind_args}\
+		# print command line
+		ldd ${bin_scale} # output linked libraries by default
+		echo ${MPIEXEC} ${hosts_global} ${output_args} ${genv_args} ${launcher_arg} ${ppn_args} ${bind_args}\
+		       	-n ${np} ${env_args} ${bin_scale} ${bin_opts[@]} :\
+		       	-n ${np} ${env_args} ${bin_letkf} ${bin_opts[@]}
+		${MPIEXEC} ${hosts_global} ${output_args} ${genv_args} ${launcher_arg} ${ppn_args} ${bind_args}\
 		       	-n ${np} ${bin_scale} ${bin_opts[@]} :\
 		       	-n ${np} ${bin_letkf} ${bin_opts[@]}
 	else
 		# Intel MPI will run different mpiexec processes on the same nodes
 		ldd ${bin_scale} # output linked libraries by default
 		echo ${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
-			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]}
+			-n ${np} ${hosts_scale} ${bin_scale} ${bin_opts[@]}
 
 		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
-			-n ${np} ${mfargs_scale} ${bin_scale} ${bin_opts[@]} &
+			-n ${np} ${hosts_scale} ${bin_scale} ${bin_opts[@]} &
 		${MPIEXEC} ${output_args} ${genv_args} ${ppn_args} ${launcher_arg} ${bind_args}\
-			-n ${np} ${mfargs_letkf} ${bin_letkf} ${bin_opts[@]}
+			-n ${np} ${hosts_letkf} ${bin_letkf} ${bin_opts[@]}
 	fi
 
 	if [ "$?" -ne 0 ]; then
