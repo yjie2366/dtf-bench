@@ -167,7 +167,6 @@ if [ ! -e "${dtf_config}" -o "${mode}" = "file" ]; then
 	sed -i "s/MODE/${mode}/g" ${dtf_config}
 fi	
 
-# Setup Intel MPI version if necessary
 if [ "${target}" = "ofp" ]; then
 	# Verify Intel MPI version because the default ver.2019.5
 	# may not work for DTF
@@ -207,13 +206,13 @@ if [ "${target}" = "ofp" ]; then
 	find `pwd` \( -name "${scale_nodes}" -o -name "${letkf_nodes}" \) -exec rm {} \+
 
 	# set hostfile
-	if [ -n "${I_MPI_HYDRA_HOST_FILE}" ]; then
-
+	if [ -n "${PJM_O_NODEINF}" ]; then
+		node_file=${PJM_O_NODEINF}
 		if [ -n "${SPLIT_WRAPPER}" ]; then
-			hosts_global="-f ${I_MPI_HYDRA_HOST_FILE}"
+			hosts_global="-f ${node_file}"
 		else
-			cat ${I_MPI_HYDRA_HOST_FILE} | head -n $((np/ppn)) > ${scale_nodes}
-			cat ${I_MPI_HYDRA_HOST_FILE} | tail -n $((np/ppn)) > ${letkf_nodes}
+			cat ${node_file} | head -n $((np/ppn)) > ${scale_nodes}
+			cat ${node_file} | tail -n $((np/ppn)) > ${letkf_nodes}
 			
 			hosts_scale="-f ${scale_nodes}"
 			hosts_letkf="-f ${letkf_nodes}"

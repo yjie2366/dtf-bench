@@ -161,6 +161,7 @@ if [ -z "${ppn}" ]; then
 	ppn=1; nnodes=${total_nprocs}
 else
 	nnodes=$((total_nprocs/ppn))
+	#nnodes=$((nprocs/ppn))
 fi
 args+=(-ppn ${ppn})
 
